@@ -1,6 +1,6 @@
 # FOOD-Me
 
-_A **F**inally <ins>G**OO**D</ins> **D**atabase **M**iddlewar**e**_
+_**F**inally a <ins>G**OO**D</ins> **D**atabase **M**iddlewar**e**_
 
 A simple generic database middleware, that supports OIDC as an authentication method.
 
