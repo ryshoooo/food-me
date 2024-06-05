@@ -16,6 +16,8 @@ type Configuration struct {
 	DestinationHost         string `long:"destination-host" env:"DESTINATION_HOST" required:"true"`
 	DestinationPort         int    `long:"destination-port" env:"DESTINATION_PORT" required:"true"`
 	DestinationDatabaseType string `long:"destination-database-type" env:"DESTINATION_DATABASE_TYPE" choice:"postgres" required:"true"`
+	DestinationUsername     string `long:"destination-username" env:"DESTINATION_USERNAME"`
+	DestinationPassword     string `long:"destination-password" env:"DESTINATION_PASSWORD"`
 
 	// Server
 	ServerPort int `long:"port" env:"PORT" default:"2099"`

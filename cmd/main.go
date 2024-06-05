@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"net"
 	"os"
 
 	foodme "github.com/ryshoooo/food-me/internal"
@@ -57,6 +56,11 @@ func main() {
 	}
 
 	logger := foodme.NewLogger(conf)
-	server := foodme.NewServer(conf.ServerPort, logger, func(c net.Conn) error { return nil })
+	handler, err := foodme.GetHandler(conf, logger)
+	if err != nil {
+		logger.Errorf("Failed to establish a database handler: %s", err)
+		os.Exit(1)
+	}
+	server := foodme.NewServer(conf.ServerPort, logger, handler)
 	logger.Fatal(server.Start())
 }

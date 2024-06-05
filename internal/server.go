@@ -12,13 +12,17 @@ type IServer interface {
 	Listen(listener net.Listener) error
 }
 
+type IHandler interface {
+	Handle(connection net.Conn) error
+}
+
 type Server struct {
 	Port    int
 	Logger  *logrus.Logger
-	Handler func(connection net.Conn) error
+	Handler IHandler
 }
 
-func NewServer(port int, logger *logrus.Logger, handler func(connection net.Conn) error) *Server {
+func NewServer(port int, logger *logrus.Logger, handler IHandler) *Server {
 	return &Server{Port: port, Logger: logger, Handler: handler}
 }
 
@@ -40,6 +44,6 @@ func (s *Server) Listen(listener net.Listener) error {
 			continue
 		}
 
-		go s.Handler(conn)
+		go s.Handler.Handle(conn)
 	}
 }
