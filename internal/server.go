@@ -44,6 +44,7 @@ func (s *Server) Listen(listener net.Listener) error {
 			continue
 		}
 
+		s.Logger.Infof("Accepted connection: %s", conn.RemoteAddr().String())
 		go s.Handler.Handle(conn)
 	}
 }

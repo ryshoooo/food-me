@@ -50,6 +50,7 @@ func (h *PostgresHandler) Handle(conn net.Conn) error {
 }
 
 func (h *PostgresHandler) Startup(conn, dest net.Conn) error {
+	h.Logger.Info("Commencing startup")
 	startup, err := h.Read(conn, 8)
 	if err != nil {
 		h.Logger.Errorf("Error reading startup packet from source: %v", err)
