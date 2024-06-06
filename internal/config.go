@@ -18,6 +18,7 @@ type Configuration struct {
 	DestinationDatabaseType string `long:"destination-database-type" env:"DESTINATION_DATABASE_TYPE" choice:"postgres" required:"true"`
 	DestinationUsername     string `long:"destination-username" env:"DESTINATION_USERNAME"`
 	DestinationPassword     string `long:"destination-password" env:"DESTINATION_PASSWORD"`
+	DestinationLogUpstream  bool   `long:"destination-log-upstream" env:"DESTINATION_LOG_UPSTREAM"`
 
 	// Server
 	ServerPort int `long:"port" env:"PORT" default:"2099"`

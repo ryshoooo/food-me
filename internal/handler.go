@@ -15,6 +15,7 @@ func GetHandler(conf *Configuration, logger *logrus.Logger) (IHandler, error) {
 				conf.DestinationUsername,
 				conf.DestinationPassword,
 				logger,
+				conf.DestinationLogUpstream,
 			),
 			nil
 	default:
