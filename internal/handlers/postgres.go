@@ -78,7 +78,6 @@ func (h *PostgresHandler) Startup(conn, dest net.Conn) error {
 	h.Logger.Info("Commencing startup")
 	startup, err := h.Read(conn, 8, "client")
 	if err != nil {
-		h.Logger.Errorf("Error reading startup packet from client: %v", err)
 		return err
 	}
 	h.Logger.Debugf("Read startup packet from client: %v", startup)
@@ -88,12 +87,10 @@ func (h *PostgresHandler) Startup(conn, dest net.Conn) error {
 	}
 	resp, err := h.Read(dest, 1, "db")
 	if err != nil {
-		h.Logger.Errorf("Error reading startup response from db: %v", err)
 		return err
 	}
 	h.Logger.Debugf("Read startup response from db: %v", resp)
 	if resp[0] != 'N' {
-		h.Logger.Errorf("Unexpected response from db: %v", resp)
 		return fmt.Errorf("unexpected response from db: %v", resp)
 	}
 	return h.Write(conn, resp, "client")
@@ -124,7 +121,6 @@ func (h *PostgresHandler) Authenticate(conn, dest net.Conn) error {
 	h.Logger.Info("Commencing authentication")
 	sizebuff, err := h.Read(conn, 4, "client")
 	if err != nil {
-		h.Logger.Errorf("Error reading authentication size from client: %v", err)
 		return err
 	}
 
@@ -134,7 +130,6 @@ func (h *PostgresHandler) Authenticate(conn, dest net.Conn) error {
 
 	auth, err := h.Read(conn, size-4, "client")
 	if err != nil {
-		h.Logger.Errorf("Error reading authentication packet from client: %v", err)
 		return err
 	}
 	h.Logger.Debugf("Read authentication packet from client: %v (%s)", auth, auth)
@@ -142,7 +137,6 @@ func (h *PostgresHandler) Authenticate(conn, dest net.Conn) error {
 	parts := bytes.Split(auth, []byte{0})
 	h.Logger.Debugf("Split authentication packet: %v", parts)
 	if len(parts) < 7 {
-		h.Logger.Errorf("Invalid authentication packet: %v", parts)
 		return fmt.Errorf("invalid authentication packet: %v", parts)
 	}
 	u := string(parts[3])
