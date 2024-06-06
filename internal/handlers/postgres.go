@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"crypto/md5"
 	"fmt"
 	"io"
 	"net"
@@ -249,6 +250,7 @@ func (h *PostgresHandler) auth(dest net.Conn) error {
 	if len(rs) < 3 {
 		return fmt.Errorf("unexpected response from db: %v", rs)
 	}
+	h.Logger.Debugf("Auth method: %v", rs)
 	method := rs[3][0]
 	switch int(method) {
 	case 3:
@@ -256,14 +258,14 @@ func (h *PostgresHandler) auth(dest net.Conn) error {
 		return h.handleClearPasswordAuth(dest)
 	case 5:
 		h.Logger.Info("MD5 password auth method")
-		return nil
+		return h.handleMD5PasswordAuth(dest, string(rs[3][1:]))
 	case 7:
 	case 8:
 		h.Logger.Info("GSSAPI auth method")
 		return fmt.Errorf("GSSAPI auth method not supported")
 	case 10:
 		h.Logger.Info("SCRAM-SHA-256 auth method")
-		return nil
+		return h.handleSCRAMSHA256Auth(dest)
 	default:
 		return fmt.Errorf("unknown auth method: %v", method)
 	}
@@ -306,6 +308,58 @@ func (h *PostgresHandler) handleClearPasswordAuth(dest net.Conn) error {
 	}
 
 	h.Logger.Info("Clear password auth successful")
+	return nil
+}
+
+func (h *PostgresHandler) handleMD5PasswordAuth(dest net.Conn, key string) error {
+	msg := []byte{'p'}
+
+	// Calculate the MD5 hash
+	md5H := md5.New()
+	_, err := md5H.Write([]byte(h.Password + h.Username))
+	if err != nil {
+		return err
+	}
+	pwd1 := fmt.Sprintf("%x", md5H.Sum(nil))
+	md5H.Reset()
+	_, err = md5H.Write([]byte(pwd1 + key))
+	if err != nil {
+		return err
+	}
+	pwd := fmt.Sprintf("md5%x", md5H.Sum(nil))
+
+	// Send the password
+	s := createPacketSize(len(pwd) + 5)
+	msg = append(msg, s...)
+	msg = append(msg, []byte(pwd)...)
+	msg = append(msg, 0)
+	h.Write(dest, msg, "db")
+
+	// Handle response
+	r, err := h.Read(dest, 1, "db")
+	if err != nil {
+		return err
+	}
+	if r[0] != 'R' {
+		return fmt.Errorf("unexpected response from db: %v %s", r, r)
+	}
+	r, err = h.Read(dest, 4, "db")
+	if err != nil {
+		return err
+	}
+	rsize := calculatePacketSize(r)
+	r, err = h.Read(dest, rsize-4, "db")
+	if err != nil {
+		return err
+	}
+
+	if len(r) != 4 {
+		return fmt.Errorf("unexpected response from db: %v", r)
+	}
+	if r[0] != 0 || r[1] != 0 || r[2] != 0 || r[3] != 0 {
+		return fmt.Errorf("unexpected response from db: %v", r)
+	}
+	h.Logger.Info("MD5 password auth successful")
 	return nil
 }
 
