@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/sirupsen/logrus"
+	"github.com/xdg-go/scram"
 )
 
 type PostgresHandler struct {
@@ -360,6 +361,135 @@ func (h *PostgresHandler) handleMD5PasswordAuth(dest net.Conn, key string) error
 		return fmt.Errorf("unexpected response from db: %v", r)
 	}
 	h.Logger.Info("MD5 password auth successful")
+	return nil
+}
+
+func (h *PostgresHandler) handleSCRAMSHA256Auth(dest net.Conn) error {
+	msg := []byte{'p'}
+
+	// First step
+	client, err := scram.SHA256.NewClient(h.Username, h.Password, "")
+	if err != nil {
+		return err
+	}
+	conv := client.NewConversation()
+	var resp string
+	firstMsg, err := conv.Step(resp)
+	if err != nil {
+		return err
+	}
+	h.Logger.Debugf("First step: %v", firstMsg)
+
+	// Send the first step to the db
+	pwd := []byte("SCRAM-SHA-256")
+	pwd = append(pwd, 0)
+	firstStepSize := createPacketSize(len(firstMsg))
+	pwd = append(pwd, firstStepSize...)
+	pwd = append(pwd, []byte(firstMsg)...)
+	size := createPacketSize(len(pwd) + 4)
+	msg = append(msg, size...)
+	msg = append(msg, pwd...)
+	h.Write(dest, msg, "db")
+
+	// Get the data for second step
+	r, err := h.Read(dest, 1, "db")
+	if err != nil {
+		return err
+	}
+	if r[0] != 'R' {
+		return fmt.Errorf("unexpected response from db: %v %s", r, r)
+	}
+	r, err = h.Read(dest, 4, "db")
+	if err != nil {
+		return err
+	}
+	rsize := calculatePacketSize(r)
+	r, err = h.Read(dest, rsize-4, "db")
+	if err != nil {
+		return err
+	}
+	rs := bytes.Split(r, []byte{0})
+	if len(rs) < 4 {
+		return fmt.Errorf("unexpected response from db: %v", rs)
+	}
+	if rs[3][0] != 11 {
+		return fmt.Errorf("unexpected response from db: %v", rs)
+	}
+	resp = string(rs[3][1:])
+	h.Logger.Debugf("First step response: %v", resp)
+
+	// Second step
+	secondMsg, err := conv.Step(resp)
+	if err != nil {
+		return err
+	}
+	h.Logger.Debugf("Second step: %v", secondMsg)
+
+	// Send the second step to the db
+	msg = []byte{'p'}
+	size = createPacketSize(len(secondMsg) + 4)
+	msg = append(msg, size...)
+	msg = append(msg, []byte(secondMsg)...)
+	h.Write(dest, msg, "db")
+
+	// Get the data for the third step
+	r, err = h.Read(dest, 1, "db")
+	if err != nil {
+		return err
+	}
+	if r[0] != 'R' {
+		return fmt.Errorf("unexpected response from db: %v %s", r, r)
+	}
+	r, err = h.Read(dest, 4, "db")
+	if err != nil {
+		return err
+	}
+	rsize = calculatePacketSize(r)
+	r, err = h.Read(dest, rsize-4, "db")
+	if err != nil {
+		return err
+	}
+	rs = bytes.Split(r, []byte{0})
+	if len(rs) < 4 {
+		return fmt.Errorf("unexpected response from db: %v", rs)
+	}
+	if rs[3][0] != 12 {
+		return fmt.Errorf("unexpected response from db: %v", rs)
+	}
+	resp = string(rs[3][1:])
+	h.Logger.Debugf("Second step response: %v", resp)
+
+	// Third step (validation)
+	_, err = conv.Step(resp)
+	if err != nil {
+		return err
+	}
+
+	// Expecting success from the db
+	r, err = h.Read(dest, 1, "db")
+	if err != nil {
+		return err
+	}
+	if r[0] != 'R' {
+		return fmt.Errorf("unexpected response from db: %v %s", r, r)
+	}
+	r, err = h.Read(dest, 4, "db")
+	if err != nil {
+		return err
+	}
+	rsize = calculatePacketSize(r)
+	r, err = h.Read(dest, rsize-4, "db")
+	if err != nil {
+		return err
+	}
+	if len(r) != 4 {
+		return fmt.Errorf("unexpected response from db: %v", r)
+	}
+	if r[0] != 0 || r[1] != 0 || r[2] != 0 || r[3] != 0 {
+		return fmt.Errorf("unexpected response from db: %v", r)
+	}
+
+	h.Logger.Info("SCRAM-SHA-256 auth successful")
 	return nil
 }
 
