@@ -16,6 +16,8 @@ type PostgresHandler struct {
 	Password    string
 	Logger      *logrus.Logger
 	LogUpstream bool
+
+	Database string
 }
 
 func NewPostgresHandler(address, username, password string, logger *logrus.Logger, logUpstream bool) *PostgresHandler {
@@ -93,7 +95,12 @@ func (h *PostgresHandler) Startup(conn, dest net.Conn) error {
 	if resp[0] != 'N' {
 		return fmt.Errorf("unexpected response from db: %v", resp)
 	}
-	return h.Write(conn, resp, "client")
+	err = h.Write(conn, resp, "client")
+	if err != nil {
+		return err
+	}
+	h.Logger.Info("Startup successful")
+	return nil
 }
 
 func (h *PostgresHandler) Write(dest net.Conn, data []byte, name string) error {
@@ -174,15 +181,138 @@ func (h *PostgresHandler) Authenticate(conn, dest net.Conn) error {
 		return nil
 	}
 
+	h.Database = dv
+
 	// TODO: Verify tokens
 
 	// TODO: Authenticate as the configured user
+	err = h.auth(dest)
+	if err != nil {
+		return err
+	}
 
-	// TODO: Send OK to client
+	// Send OK to client
+	err = h.Write(conn, []byte{82, 0, 0, 0, 8, 0, 0, 0, 0}, "client")
+	if err != nil {
+		return err
+	}
 
+	return nil
+}
+
+func (h *PostgresHandler) auth(dest net.Conn) error {
+	h.Logger.Info("Authenticating as configured user")
+
+	// Send initial auth request
+	msg := []byte{0, 3, 0, 0}
+	msg = append(msg, []byte("user")...)
+	msg = append(msg, 0)
+	msg = append(msg, []byte(h.Username)...)
+	msg = append(msg, 0)
+	msg = append(msg, []byte("database")...)
+	msg = append(msg, 0)
+	msg = append(msg, []byte(h.Database)...)
+	msg = append(msg, []byte{0, 0}...)
+	size := createPacketSize(len(msg) + 4)
+	msg = append(size, msg...)
+	err := h.Write(dest, msg, "db")
+	if err != nil {
+		return err
+	}
+
+	// Read auth response challenge
+	r, err := h.Read(dest, 1, "db")
+	if err != nil {
+		return err
+	}
+	if r[0] != 'R' {
+		return fmt.Errorf("unexpected response from db: %v %s", r, r)
+	}
+	r, err = h.Read(dest, 4, "db")
+	if err != nil {
+		return err
+	}
+	rsize := calculatePacketSize(r)
+	r, err = h.Read(dest, rsize-4, "db")
+	if err != nil {
+		return err
+	}
+
+	// Check trust auth method
+	if rsize == 8 && r[0] == 0 && r[1] == 0 && r[2] == 0 && r[3] == 0 {
+		h.Logger.Info("Trust auth method reply. Authentication successful")
+		return nil
+	}
+
+	// Determine the method
+	rs := bytes.Split(r, []byte{0})
+	if len(rs) < 3 {
+		return fmt.Errorf("unexpected response from db: %v", rs)
+	}
+	method := rs[3][0]
+	switch int(method) {
+	case 3:
+		h.Logger.Info("Clear password auth method")
+		return h.handleClearPasswordAuth(dest)
+	case 5:
+		h.Logger.Info("MD5 password auth method")
+		return nil
+	case 7:
+	case 8:
+		h.Logger.Info("GSSAPI auth method")
+		return fmt.Errorf("GSSAPI auth method not supported")
+	case 10:
+		h.Logger.Info("SCRAM-SHA-256 auth method")
+		return nil
+	default:
+		return fmt.Errorf("unknown auth method: %v", method)
+	}
+
+	return nil
+}
+
+func (h *PostgresHandler) handleClearPasswordAuth(dest net.Conn) error {
+	msg := []byte{'p'}
+	pwd := []byte(h.Password)
+	s := createPacketSize(len(pwd) + 5)
+	msg = append(msg, s...)
+	msg = append(msg, pwd...)
+	msg = append(msg, 0)
+	h.Write(dest, msg, "db")
+
+	// Read auth response
+	r, err := h.Read(dest, 1, "db")
+	if err != nil {
+		return err
+	}
+	if r[0] != 'R' {
+		return fmt.Errorf("unexpected response from db: %v %s", r, r)
+	}
+	r, err = h.Read(dest, 4, "db")
+	if err != nil {
+		return err
+	}
+	rsize := calculatePacketSize(r)
+	r, err = h.Read(dest, rsize-4, "db")
+	if err != nil {
+		return err
+	}
+
+	if len(r) != 4 {
+		return fmt.Errorf("unexpected response from db: %v", r)
+	}
+	if r[0] != 0 || r[1] != 0 || r[2] != 0 || r[3] != 0 {
+		return fmt.Errorf("unexpected response from db: %v", r)
+	}
+
+	h.Logger.Info("Clear password auth successful")
 	return nil
 }
 
 func calculatePacketSize(sizebuff []byte) int {
 	return int(sizebuff[0])<<24 | int(sizebuff[1])<<16 | int(sizebuff[2])<<8 | int(sizebuff[3])
+}
+
+func createPacketSize(size int) []byte {
+	return []byte{byte(size >> 24), byte(size >> 16), byte(size >> 8), byte(size)}
 }
