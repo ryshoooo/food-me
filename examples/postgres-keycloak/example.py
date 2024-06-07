@@ -11,7 +11,7 @@ tokens = oid.token(username="admin", password="admin")
 dsn = f"dbname=postgres host=localhost port=5432 user=access_token={tokens['access_token']};refresh_token={tokens['refresh_token']}"
 conn = psycopg2.connect(dsn)
 
-# Exectute a query
+# Execute a query
 cur = conn.cursor()
 cur.execute("SELECT current_user;")
 print(cur.fetchone())
