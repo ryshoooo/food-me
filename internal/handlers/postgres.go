@@ -83,6 +83,10 @@ func (h *PostgresHandler) PipeForever(upstream, client net.Conn, upstreamName st
 func (h *PostgresHandler) PipeClientNicely(client, dest net.Conn) {
 	for {
 		op, size, data, err := h.ReadClientMessage(client)
+		if err == io.EOF {
+			h.Logger.Info("Client closed connection")
+			break
+		}
 		if err != nil {
 			h.Logger.Errorf("Error reading from client: %v", err)
 			break
@@ -134,6 +138,9 @@ func (h *PostgresHandler) Read(conn net.Conn, size int, name string) ([]byte, er
 	buff := make([]byte, size)
 	n, err := conn.Read(buff)
 	if err != nil || n != size {
+		if err == io.EOF {
+			return nil, err
+		}
 		h.Logger.Errorf("Error reading from %s: %v", name, err)
 		return nil, err
 	}
