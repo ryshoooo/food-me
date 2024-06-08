@@ -3,6 +3,7 @@ module github.com/ryshoooo/food-me
 go 1.22.3
 
 require (
+	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/xdg-go/scram v1.1.2

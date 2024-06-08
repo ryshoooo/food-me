@@ -3,20 +3,24 @@ package foodme
 import (
 	"fmt"
 
-	"github.com/ryshoooo/food-me/internal/handlers"
 	"github.com/sirupsen/logrus"
 )
 
 func GetHandler(conf *Configuration, logger *logrus.Logger) (IHandler, error) {
 	switch conf.DestinationDatabaseType {
 	case "postgres":
-		return handlers.NewPostgresHandler(
+		return NewPostgresHandler(
 				conf.DestinationHost+":"+fmt.Sprint(conf.DestinationPort),
 				conf.DestinationUsername,
 				conf.DestinationPassword,
 				logger,
 				conf.DestinationLogUpstream,
 				conf.DestinationLogDownstream,
+				conf.OIDCEnabled,
+				conf.OIDCClientID,
+				conf.OIDCClientSecret,
+				conf.OIDCTokenURL,
+				conf.OIDCUserInfoURL,
 			),
 			nil
 	default:

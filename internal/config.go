@@ -21,6 +21,13 @@ type Configuration struct {
 	DestinationLogUpstream   bool   `long:"destination-log-upstream" env:"DESTINATION_LOG_UPSTREAM"`
 	DestinationLogDownstream bool   `long:"destination-log-downstream" env:"DESTINATION_LOG_DOWNSTREAM"`
 
+	// OIDC
+	OIDCEnabled      bool   `long:"oidc-enabled" env:"OIDC_ENABLED"`
+	OIDCClientID     string `long:"oidc-client-id" env:"OIDC_CLIENT_ID"`
+	OIDCClientSecret string `long:"oid-client-secret" env:"OIDC_CLIENT_SECRET"`
+	OIDCTokenURL     string `long:"oidc-token-url" env:"OIDC_TOKEN_URL"`
+	OIDCUserInfoURL  string `long:"oidc-user-info-url" env:"OIDC_USER_INFO_URL"`
+
 	// Server
 	ServerPort int `long:"port" env:"PORT" default:"2099"`
 }

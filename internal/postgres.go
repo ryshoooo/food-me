@@ -1,4 +1,4 @@
-package handlers
+package foodme
 
 import (
 	"bytes"
@@ -13,24 +13,40 @@ import (
 )
 
 type PostgresHandler struct {
-	Address       string
-	Username      string
-	Password      string
-	Logger        *logrus.Logger
-	LogUpstream   bool
-	LogDownstream bool
+	Address          string
+	Username         string
+	Password         string
+	Logger           *logrus.Logger
+	LogUpstream      bool
+	LogDownstream    bool
+	OIDCEnabled      bool
+	OIDCClientID     string
+	OIDCClientSecret string
+	OIDCTokenURL     string
+	OIDCUserInfoURL  string
 
-	Database string
+	Database   string
+	OIDCClient *OIDCClient
 }
 
-func NewPostgresHandler(address, username, password string, logger *logrus.Logger, logUpstream, logDownstream bool) *PostgresHandler {
+func NewPostgresHandler(
+	address, username, password string,
+	logger *logrus.Logger,
+	logUpstream, logDownstream, oidcEnabled bool,
+	oidcClientId, oidcClientSecret, oidcTokenUrl, oidcUserInfoUrl string,
+) *PostgresHandler {
 	return &PostgresHandler{
-		Address:       address,
-		Username:      username,
-		Password:      password,
-		Logger:        logger,
-		LogUpstream:   logUpstream,
-		LogDownstream: logDownstream,
+		Address:          address,
+		Username:         username,
+		Password:         password,
+		Logger:           logger,
+		LogUpstream:      logUpstream,
+		LogDownstream:    logDownstream,
+		OIDCEnabled:      oidcEnabled,
+		OIDCClientID:     oidcClientId,
+		OIDCClientSecret: oidcClientSecret,
+		OIDCTokenURL:     oidcTokenUrl,
+		OIDCUserInfoURL:  oidcUserInfoUrl,
 	}
 }
 
@@ -47,18 +63,36 @@ func (h *PostgresHandler) Handle(conn net.Conn) error {
 	err = h.Startup(conn, destination)
 	if err != nil {
 		h.Logger.Errorf("Error on startup: %v", err)
-		return err
+		return h.sendErrorMessage(conn, "08000", err)
 	}
 
 	err = h.Authenticate(conn, destination)
 	if err != nil {
 		h.Logger.Errorf("Error on authentication: %v", err)
-		return err
+		return h.sendErrorMessage(conn, "28000", err)
 	}
 	go h.PipeForever(destination, conn, "postgres")
 	h.PipeClientNicely(conn, destination)
 
 	return nil
+}
+
+func (h *PostgresHandler) sendErrorMessage(conn net.Conn, code string, err error) error {
+	resp := []byte("E")
+	msg := []byte("SERROR")
+	msg = append(msg, 0)
+	msg = append(msg, []byte("VERROR")...)
+	msg = append(msg, 0)
+	msg = append(msg, append([]byte("C"), []byte(code)...)...)
+	msg = append(msg, 0)
+	msg = append(msg, append([]byte("M"), []byte(err.Error())...)...)
+	msg = append(msg, 0)
+	msg = append(msg, 0)
+
+	s := createPacketSize(len(msg) + 4)
+	resp = append(resp, s...)
+	resp = append(resp, msg...)
+	return h.Write(conn, resp, "client")
 }
 
 func (h *PostgresHandler) PipeForever(upstream, client net.Conn, upstreamName string) {
@@ -83,6 +117,16 @@ func (h *PostgresHandler) PipeForever(upstream, client net.Conn, upstreamName st
 func (h *PostgresHandler) PipeClientNicely(client, dest net.Conn) {
 	for {
 		op, size, data, err := h.ReadClientMessage(client)
+		if h.OIDCClient != nil && !h.OIDCClient.IsAccessTokenValid() {
+			h.Logger.Debug("Access token is invalid, refreshing the token")
+			err = h.OIDCClient.RefreshAccessToken()
+			if err != nil {
+				h.Logger.Errorf("Error refreshing access token: %v", err)
+				h.sendErrorMessage(client, "28000", fmt.Errorf("error refreshing access token: %v", err))
+				h.Write(client, []byte{90, 0, 0, 0, 5, 69}, "client")
+				continue
+			}
+		}
 		if err == io.EOF {
 			h.Logger.Info("Client closed connection")
 			break
@@ -203,6 +247,27 @@ func (h *PostgresHandler) Authenticate(conn, dest net.Conn) error {
 	h.Database = dv
 
 	// TODO: Verify tokens
+	if !h.OIDCEnabled {
+		h.Logger.Info("OIDC is disabled, proxy all the requests going forward")
+		h.Write(dest, sizebuff, "db")
+		h.Write(dest, auth, "db")
+		return nil
+	}
+
+	h.OIDCClient = NewOIDCClient(h.OIDCClientID, h.OIDCClientSecret, h.OIDCTokenURL, h.OIDCUserInfoURL, accessToken, refreshToken)
+	if !h.OIDCClient.IsAccessTokenValid() {
+		h.Logger.Info("Access token is invalid, refreshing the token")
+		err = h.OIDCClient.RefreshAccessToken()
+		if err != nil {
+			return err
+		}
+	}
+
+	userinfo, err := h.OIDCClient.GetUserInfo()
+	if err != nil {
+		return err
+	}
+	h.Logger.Infof("User info: %v", userinfo)
 
 	// Authenticate as the configured user
 	err = h.auth(dest)
