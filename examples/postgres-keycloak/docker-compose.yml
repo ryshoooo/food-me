@@ -34,8 +34,10 @@ services:
       # OIDC_CLIENT_SECRET: ''
       OIDC_TOKEN_URL: http://keycloak:8080/realms/master/protocol/openid-connect/token
       OIDC_USER_INFO_URL: http://keycloak:8080/realms/master/protocol/openid-connect/userinfo
+      API_PORT: 10000
     ports:
       - 5432:2099
+      - 10000:10000
     networks:
       - foodme
 
