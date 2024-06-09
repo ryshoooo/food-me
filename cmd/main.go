@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/ryshoooo/food-me/api"
 	foodme "github.com/ryshoooo/food-me/internal"
 )
 
@@ -21,5 +22,6 @@ func main() {
 		os.Exit(1)
 	}
 	server := foodme.NewServer(conf.ServerPort, logger, handler)
+	go api.Start(logger, conf.ApiPort)
 	logger.Fatal(server.Start())
 }

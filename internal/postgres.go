@@ -3,7 +3,6 @@ package foodme
 import (
 	"bytes"
 	"crypto/md5"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"net"
@@ -228,32 +227,23 @@ func (h *PostgresHandler) Authenticate(conn, dest net.Conn, sizebuff []byte) err
 	dv := string(parts[6])
 	h.Logger.Debugf("Authentication: %v=%v %v=%v", u, uv, d, dv)
 
-	// base64 decode the username
-	uvd, err := base64.StdEncoding.DecodeString(uv)
-	if err != nil {
-		h.Logger.Info("Failed to base64 decode username, proxy all the requests going forward")
-		h.Write(dest, sizebuff, "db")
-		h.Write(dest, auth, "db")
-		return nil
-	}
-	uv = string(uvd)
-	uvs := strings.Split(uv, ";")
-	if len(uvs) < 2 {
-		h.Logger.Info("Username does not contain OIDC data, proxy all the requests going forward")
-		h.Write(dest, sizebuff, "db")
-		h.Write(dest, auth, "db")
-		return nil
-	}
-
-	h.Logger.Debugf("OIDC data: %v", uvs)
-	var accessToken string
-	var refreshToken string
-	for _, ov := range uvs {
-		if strings.HasPrefix(ov, "access_token=") {
-			accessToken = strings.Split(ov, "=")[1]
+	accessToken, refreshToken := GlobalState.GetTokens(uv)
+	if accessToken == "" || refreshToken == "" {
+		uvs := strings.Split(uv, ";")
+		if len(uvs) < 2 {
+			h.Logger.Info("Username does not contain OIDC data, proxy all the requests going forward")
+			h.Write(dest, sizebuff, "db")
+			h.Write(dest, auth, "db")
+			return nil
 		}
-		if strings.HasPrefix(ov, "refresh_token=") {
-			refreshToken = strings.Split(ov, "=")[1]
+		h.Logger.Debugf("OIDC data: %v", uvs)
+		for _, ov := range uvs {
+			if strings.HasPrefix(ov, "access_token=") {
+				accessToken = strings.Split(ov, "=")[1]
+			}
+			if strings.HasPrefix(ov, "refresh_token=") {
+				refreshToken = strings.Split(ov, "=")[1]
+			}
 		}
 	}
 

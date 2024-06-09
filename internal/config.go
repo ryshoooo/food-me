@@ -30,6 +30,9 @@ type Configuration struct {
 
 	// Server
 	ServerPort int `long:"port" env:"PORT" default:"2099"`
+
+	// API
+	ApiPort int `long:"api-port" env:"API_PORT" default:"10000"`
 }
 
 func NewConfiguration(args []string) (*Configuration, error) {
