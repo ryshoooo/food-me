@@ -37,10 +37,28 @@ func (c *OIDCClient) IsAccessTokenValid() bool {
 		return false
 	}
 
-	token, _ := jwt.Parse(c.AccessToken, nil)
+	// Parse the token
+	claims := jwt.MapClaims{}
+	token, _ := jwt.ParseWithClaims(c.AccessToken, claims, nil)
 	if token == nil {
 		return false
 	}
+
+	// Verify azp claim
+	azp, ok := claims["azp"]
+	if !ok {
+		return false
+	}
+	switch azpType := azp.(type) {
+	case string:
+		if azpType != c.ClientID {
+			return false
+		}
+	default:
+		return false
+	}
+
+	// Verify exp claim
 	dt, err := token.Claims.GetExpirationTime()
 	if err != nil {
 		return false
@@ -72,19 +90,20 @@ func (c *OIDCClient) RefreshAccessToken() error {
 		return err
 	}
 	defer resp.Body.Close()
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status code from refresh token: %d", resp.StatusCode)
+		return fmt.Errorf("unexpected status code from refresh token: %d. Body: %s", resp.StatusCode, string(b))
 	}
 
 	// Parse the response
 	var tokenResponse struct {
 		AccessToken string `json:"access_token"`
 	}
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
+
 	err = json.Unmarshal(b, &tokenResponse)
 	if err != nil {
 		return err
@@ -113,20 +132,19 @@ func (c *OIDCClient) GetUserInfo() (map[string]interface{}, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code from user info: %d", resp.StatusCode)
-	}
-
-	var userInfo map[string]interface{}
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code from user info: %d. Body: %s", resp.StatusCode, string(b))
+	}
+
+	var userInfo map[string]interface{}
 	err = json.Unmarshal(b, &userInfo)
 	if err != nil {
 		return nil, err
 	}
-
 	return userInfo, nil
 }
