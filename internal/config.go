@@ -1,7 +1,9 @@
 package foodme
 
 import (
+	"fmt"
 	"os"
+	"strings"
 
 	"github.com/jessevdk/go-flags"
 	"github.com/sirupsen/logrus"
@@ -13,36 +15,65 @@ type Configuration struct {
 	LogFormat string `long:"log-format" env:"LOG_FORMAT" default:"pretty" choice:"text" choice:"json" choice:"pretty" description:"Log format"`
 
 	// Destination
-	DestinationHost          string `long:"destination-host" env:"DESTINATION_HOST" required:"true"`
-	DestinationPort          int    `long:"destination-port" env:"DESTINATION_PORT" required:"true"`
-	DestinationDatabaseType  string `long:"destination-database-type" env:"DESTINATION_DATABASE_TYPE" choice:"postgres" required:"true"`
-	DestinationUsername      string `long:"destination-username" env:"DESTINATION_USERNAME"`
-	DestinationPassword      string `long:"destination-password" env:"DESTINATION_PASSWORD"`
-	DestinationLogUpstream   bool   `long:"destination-log-upstream" env:"DESTINATION_LOG_UPSTREAM"`
-	DestinationLogDownstream bool   `long:"destination-log-downstream" env:"DESTINATION_LOG_DOWNSTREAM"`
+	DestinationHost          string `long:"destination-host" env:"DESTINATION_HOST" required:"true" description:"Database host"`
+	DestinationPort          int    `long:"destination-port" env:"DESTINATION_PORT" required:"true" description:"Database port"`
+	DestinationDatabaseType  string `long:"destination-database-type" env:"DESTINATION_DATABASE_TYPE" choice:"postgres" required:"true" description:"Database type"`
+	DestinationUsername      string `long:"destination-username" env:"DESTINATION_USERNAME" description:"Database root username"`
+	DestinationPassword      string `long:"destination-password" env:"DESTINATION_PASSWORD" description:"Database root password"`
+	DestinationLogUpstream   bool   `long:"destination-log-upstream" env:"DESTINATION_LOG_UPSTREAM" description:"Log packets from the destination database"`
+	DestinationLogDownstream bool   `long:"destination-log-downstream" env:"DESTINATION_LOG_DOWNSTREAM" description:"Log packets from the source client"`
 
 	// OIDC
-	OIDCEnabled      bool   `long:"oidc-enabled" env:"OIDC_ENABLED"`
-	OIDCClientID     string `long:"oidc-client-id" env:"OIDC_CLIENT_ID"`
-	OIDCClientSecret string `long:"oid-client-secret" env:"OIDC_CLIENT_SECRET"`
-	OIDCTokenURL     string `long:"oidc-token-url" env:"OIDC_TOKEN_URL"`
-	OIDCUserInfoURL  string `long:"oidc-user-info-url" env:"OIDC_USER_INFO_URL"`
+	OIDCEnabled      bool   `long:"oidc-enabled" env:"OIDC_ENABLED" description:"Enable OIDC authentication"`
+	OIDCClientID     string `long:"oidc-client-id" env:"OIDC_CLIENT_ID" description:"Global OIDC Client ID"`
+	OIDCClientSecret string `long:"oid-client-secret" env:"OIDC_CLIENT_SECRET" description:"Global OIDC Client Secret"`
+	OIDCTokenURL     string `long:"oidc-token-url" env:"OIDC_TOKEN_URL" description:"OIDC Token URL"`
+	OIDCUserInfoURL  string `long:"oidc-user-info-url" env:"OIDC_USER_INFO_URL" description:"OIDC User Info URL"`
+
+	// OIDC-Database
+	EDatabaseClientID                string `long:"oidc-database-client-id" env:"OIDC_DATABASE_CLIENT_ID" description:"OIDC Database Client ID mapping"`
+	EDatabaseClientSecret            string `long:"oidc-database-client-secret" env:"OIDC_DATABASE_CLIENT_SECRET" description:"OIDC Database Client Secret mapping"`
+	OIDCDatabaseFallBackToBaseClient bool   `long:"oidc-database-fallback-to-base-client" env:"OIDC_DATABASE_FALLBACK_TO_BASE_CLIENT" description:"Fall back to the base client if the client ID is not found"`
+	OIDCDatabaseClientID             map[string]string
+	OIDCDatabaseClientSecret         map[string]string
 
 	// Server
-	ServerPort int `long:"port" env:"PORT" default:"2099"`
+	ServerPort int `long:"port" env:"PORT" default:"2099" description:"Server proxy port"`
 
 	// API
-	ApiPort int `long:"api-port" env:"API_PORT" default:"10000"`
+	ApiPort int `long:"api-port" env:"API_PORT" default:"10000" description:"API port"`
 }
 
 func NewConfiguration(args []string) (*Configuration, error) {
-	c := &Configuration{LogLevel: ""}
+	c := &Configuration{OIDCDatabaseClientID: make(map[string]string), OIDCDatabaseClientSecret: make(map[string]string)}
 
 	// Parse the command line arguments
 	p := flags.NewParser(c, flags.Default)
 	_, err := p.ParseArgs(args)
 	if err != nil {
 		return nil, err
+	}
+
+	// parse database client id and secret
+	for _, key := range strings.Split(c.EDatabaseClientID, ",") {
+		if key == "" {
+			continue
+		}
+		kv := strings.Split(key, "=")
+		if len(kv) != 2 {
+			return nil, fmt.Errorf("invalid OIDC Database Client ID mapping: %s", key)
+		}
+		c.OIDCDatabaseClientID[kv[0]] = kv[1]
+	}
+	for _, key := range strings.Split(c.EDatabaseClientSecret, ",") {
+		if key == "" {
+			continue
+		}
+		kv := strings.Split(key, "=")
+		if len(kv) != 2 {
+			return nil, fmt.Errorf("invalid OIDC Database Client Secret mapping: %s", key)
+		}
+		c.OIDCDatabaseClientSecret[kv[0]] = kv[1]
 	}
 
 	return c, nil

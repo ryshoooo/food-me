@@ -9,6 +9,21 @@ import (
 func GetHandler(conf *Configuration, logger *logrus.Logger) (IHandler, error) {
 	switch conf.DestinationDatabaseType {
 	case "postgres":
+		dbc := make(map[string]*OIDCDatabaseClientSpec)
+		for db, cid := range conf.OIDCDatabaseClientID {
+			if spec, ok := dbc[db]; ok {
+				spec.ClientID = cid
+			} else {
+				dbc[db] = &OIDCDatabaseClientSpec{ClientID: cid}
+			}
+		}
+		for db, csec := range conf.OIDCDatabaseClientSecret {
+			if spec, ok := dbc[db]; ok {
+				spec.ClientSecret = csec
+			} else {
+				dbc[db] = &OIDCDatabaseClientSpec{ClientSecret: csec}
+			}
+		}
 		return NewPostgresHandler(
 				conf.DestinationHost+":"+fmt.Sprint(conf.DestinationPort),
 				conf.DestinationUsername,
@@ -21,6 +36,8 @@ func GetHandler(conf *Configuration, logger *logrus.Logger) (IHandler, error) {
 				conf.OIDCClientSecret,
 				conf.OIDCTokenURL,
 				conf.OIDCUserInfoURL,
+				conf.OIDCDatabaseFallBackToBaseClient,
+				dbc,
 			),
 			nil
 	default:

@@ -12,18 +12,25 @@ import (
 	"github.com/xdg-go/scram"
 )
 
+type OIDCDatabaseClientSpec struct {
+	ClientID     string
+	ClientSecret string
+}
+
 type PostgresHandler struct {
-	Address          string
-	Username         string
-	Password         string
-	Logger           *logrus.Logger
-	LogUpstream      bool
-	LogDownstream    bool
-	OIDCEnabled      bool
-	OIDCClientID     string
-	OIDCClientSecret string
-	OIDCTokenURL     string
-	OIDCUserInfoURL  string
+	Address                          string
+	Username                         string
+	Password                         string
+	Logger                           *logrus.Logger
+	LogUpstream                      bool
+	LogDownstream                    bool
+	OIDCEnabled                      bool
+	OIDCClientID                     string
+	OIDCClientSecret                 string
+	OIDCTokenURL                     string
+	OIDCUserInfoURL                  string
+	OIDCDatabaseFallBackToBaseClient bool
+	OIDCDatabaseClients              map[string]*OIDCDatabaseClientSpec
 
 	Database   string
 	OIDCClient *OIDCClient
@@ -34,19 +41,23 @@ func NewPostgresHandler(
 	logger *logrus.Logger,
 	logUpstream, logDownstream, oidcEnabled bool,
 	oidcClientId, oidcClientSecret, oidcTokenUrl, oidcUserInfoUrl string,
+	oidcBaseClientFallback bool,
+	oidcDatabaseClients map[string]*OIDCDatabaseClientSpec,
 ) *PostgresHandler {
 	return &PostgresHandler{
-		Address:          address,
-		Username:         username,
-		Password:         password,
-		Logger:           logger,
-		LogUpstream:      logUpstream,
-		LogDownstream:    logDownstream,
-		OIDCEnabled:      oidcEnabled,
-		OIDCClientID:     oidcClientId,
-		OIDCClientSecret: oidcClientSecret,
-		OIDCTokenURL:     oidcTokenUrl,
-		OIDCUserInfoURL:  oidcUserInfoUrl,
+		Address:                          address,
+		Username:                         username,
+		Password:                         password,
+		Logger:                           logger,
+		LogUpstream:                      logUpstream,
+		LogDownstream:                    logDownstream,
+		OIDCEnabled:                      oidcEnabled,
+		OIDCClientID:                     oidcClientId,
+		OIDCClientSecret:                 oidcClientSecret,
+		OIDCTokenURL:                     oidcTokenUrl,
+		OIDCUserInfoURL:                  oidcUserInfoUrl,
+		OIDCDatabaseFallBackToBaseClient: oidcBaseClientFallback,
+		OIDCDatabaseClients:              oidcDatabaseClients,
 	}
 }
 
@@ -266,7 +277,22 @@ func (h *PostgresHandler) Authenticate(conn, dest net.Conn, sizebuff []byte) err
 		return nil
 	}
 
-	h.OIDCClient = NewOIDCClient(h.OIDCClientID, h.OIDCClientSecret, h.OIDCTokenURL, h.OIDCUserInfoURL, accessToken, refreshToken)
+	var clientId string
+	var clientSecret string
+	if cv, ok := h.OIDCDatabaseClients[h.Database]; !ok {
+		if h.OIDCDatabaseFallBackToBaseClient {
+			clientId = h.OIDCClientID
+			clientSecret = h.OIDCClientSecret
+		} else {
+			h.Logger.Errorf("Client ID not found for database: %v", h.Database)
+			return fmt.Errorf("client ID not found for database: %v", h.Database)
+		}
+	} else {
+		clientId = cv.ClientID
+		clientSecret = cv.ClientSecret
+	}
+
+	h.OIDCClient = NewOIDCClient(clientId, clientSecret, h.OIDCTokenURL, h.OIDCUserInfoURL, accessToken, refreshToken)
 	if !h.OIDCClient.IsAccessTokenValid() {
 		h.Logger.Info("Access token is invalid, refreshing the token")
 		err = h.OIDCClient.RefreshAccessToken()
