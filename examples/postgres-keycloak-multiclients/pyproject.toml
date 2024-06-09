@@ -1,7 +1,7 @@
 [tool.poetry]
-name = "postgres-keycloak"
+name = "postgres-keycloak-multiclients"
 version = "0.1.0"
-description = "Postgres + Keycloak example"
+description = "Postgres + Keycloak example with multiple clients"
 authors = ["Richard Nemeth <ryshoooo@gmail.com>"]
 license = "MIT"
 readme = "README.md"
@@ -11,6 +11,7 @@ package-mode = false
 python = "^3.11"
 python-keycloak = "^4.1.0"
 psycopg2 = "^2.9.9"
+requests = "^2.32.3"
 
 
 [build-system]

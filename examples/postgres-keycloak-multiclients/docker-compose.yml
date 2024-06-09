@@ -30,12 +30,16 @@ services:
       DESTINATION_LOG_DOWNSTREAM: true
       PORT: 2099
       OIDC_ENABLED: true
-      OIDC_CLIENT_ID: admin-cli
+      # OIDC_CLIENT_ID: admin-cli
       # OIDC_CLIENT_SECRET: ''
       OIDC_TOKEN_URL: http://keycloak:8080/realms/master/protocol/openid-connect/token
       OIDC_USER_INFO_URL: http://keycloak:8080/realms/master/protocol/openid-connect/userinfo
+      OIDC_DATABASE_CLIENT_ID: postgres=admin-cli,test=my-client
+      OIDC_DATABASE_CLIENT_SECRET: test=my-client-secret
+      OIDC_DATABASE_FALLBACK_TO_BASE_CLIENT: false
     ports:
       - 5432:2099
+      - 10000:10000
     networks:
       - foodme
 
