@@ -3,6 +3,7 @@ package foodme
 import (
 	"bytes"
 	"crypto/md5"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net"
@@ -60,13 +61,29 @@ func (h *PostgresHandler) Handle(conn net.Conn) error {
 	}
 	defer destination.Close()
 
-	err = h.Startup(conn, destination)
+	// Determine the flow
+	size, err := h.Read(conn, 4, "client")
 	if err != nil {
-		h.Logger.Errorf("Error on startup: %v", err)
-		return h.sendErrorMessage(conn, "08000", err)
+		h.Logger.Errorf("Error reading from client: %v", err)
+		return err
+	}
+	sizeInt := calculatePacketSize(size)
+	// If startup message is first, handle it
+	if sizeInt == 8 {
+		h.Logger.Info("Startup message")
+		err = h.Startup(conn, destination)
+		if err != nil {
+			h.Logger.Errorf("Error on startup: %v", err)
+			return h.sendErrorMessage(conn, "08000", err)
+		}
+		size, err = h.Read(conn, 4, "client")
+		if err != nil {
+			h.Logger.Errorf("Error reading from client: %v", err)
+			return err
+		}
 	}
 
-	err = h.Authenticate(conn, destination)
+	err = h.Authenticate(conn, destination, size)
 	if err != nil {
 		h.Logger.Errorf("Error on authentication: %v", err)
 		return h.sendErrorMessage(conn, "28000", err)
@@ -142,12 +159,12 @@ func (h *PostgresHandler) PipeClientNicely(client, dest net.Conn) {
 
 func (h *PostgresHandler) Startup(conn, dest net.Conn) error {
 	h.Logger.Info("Commencing startup")
-	startup, err := h.Read(conn, 8, "client")
+	startup, err := h.Read(conn, 4, "client")
 	if err != nil {
 		return err
 	}
 	h.Logger.Debugf("Read startup packet from client: %v", startup)
-	err = h.Write(dest, startup, "db")
+	err = h.Write(dest, append([]byte{0, 0, 0, 8}, startup...), "db")
 	if err != nil {
 		return err
 	}
@@ -191,12 +208,8 @@ func (h *PostgresHandler) Read(conn net.Conn, size int, name string) ([]byte, er
 	return buff, nil
 }
 
-func (h *PostgresHandler) Authenticate(conn, dest net.Conn) error {
+func (h *PostgresHandler) Authenticate(conn, dest net.Conn, sizebuff []byte) error {
 	h.Logger.Info("Commencing authentication")
-	sizebuff, err := h.Read(conn, 4, "client")
-	if err != nil {
-		return err
-	}
 
 	size := calculatePacketSize(sizebuff)
 	auth, err := h.Read(conn, size-4, "client")
@@ -215,6 +228,15 @@ func (h *PostgresHandler) Authenticate(conn, dest net.Conn) error {
 	dv := string(parts[6])
 	h.Logger.Debugf("Authentication: %v=%v %v=%v", u, uv, d, dv)
 
+	// base64 decode the username
+	uvd, err := base64.StdEncoding.DecodeString(uv)
+	if err != nil {
+		h.Logger.Info("Failed to base64 decode username, proxy all the requests going forward")
+		h.Write(dest, sizebuff, "db")
+		h.Write(dest, auth, "db")
+		return nil
+	}
+	uv = string(uvd)
 	uvs := strings.Split(uv, ";")
 	if len(uvs) < 2 {
 		h.Logger.Info("Username does not contain OIDC data, proxy all the requests going forward")
