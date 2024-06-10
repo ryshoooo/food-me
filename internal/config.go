@@ -26,7 +26,7 @@ type Configuration struct {
 	// OIDC
 	OIDCEnabled      bool   `long:"oidc-enabled" env:"OIDC_ENABLED" description:"Enable OIDC authentication"`
 	OIDCClientID     string `long:"oidc-client-id" env:"OIDC_CLIENT_ID" description:"Global OIDC Client ID"`
-	OIDCClientSecret string `long:"oid-client-secret" env:"OIDC_CLIENT_SECRET" description:"Global OIDC Client Secret"`
+	OIDCClientSecret string `long:"oidc-client-secret" env:"OIDC_CLIENT_SECRET" description:"Global OIDC Client Secret"`
 	OIDCTokenURL     string `long:"oidc-token-url" env:"OIDC_TOKEN_URL" description:"OIDC Token URL"`
 	OIDCUserInfoURL  string `long:"oidc-user-info-url" env:"OIDC_USER_INFO_URL" description:"OIDC User Info URL"`
 
