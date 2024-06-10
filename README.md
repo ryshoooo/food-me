@@ -22,8 +22,8 @@ Pretty neat and yummy. Right?
 
 - OIDC authentication and authorization
 - User impersonation in the session
-- Most common drivers and databases (wishful thinking, needs work ¯\_(ツ)\_/¯)
-- OPA integration (wishful thinking, needs work ¯\_(ツ)\_/¯)
+- Most common drivers and databases (wishful thinking, needs work ¯\\\_(ツ)\_/¯)
+- OPA integration (wishful thinking, needs work ¯\\\_(ツ)\_/¯)
 
 ## How does it work?
 
