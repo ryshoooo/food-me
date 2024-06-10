@@ -8,6 +8,8 @@ A simple generic database middleware, that supports OIDC as an authentication me
 
 ## Introduction
 
+**Disclaimer**: I can "proudly" say that no LLM has been used to generate this piece of README text. Enjoy reading this raw text of my twisted mind. Or don't, you can also skip it I suppose :(
+
 OIDC/OAuth2 is becoming the industry standard for handling authentication as well as authorization. However, when it comes to database communications, most databases lack OIDC as the authorization mechanism, and for a good reason! OIDC was meant to be the authentication mechanism for WebApps, websites that allow you to log in with your favorite social media provider instead of creating a new username and password that you'll definitely forget unless put into the password manager. And, the authentication flow performs website redirects, which don't really work well with direct TCP database connections.
 
 But, the world of cloud computing is moving forward, and instead of having a beefy laptop/PC, people and nerds (developers) started using cloud computing and desktops in their browsers instead of their own devices. And, most of these cloud desktop platforms actually use OIDC to log you in, meaning you have potentially access to your bearer token very natively.
