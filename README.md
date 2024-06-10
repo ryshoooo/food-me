@@ -40,13 +40,13 @@ The basic flow is (from the client's perspective):
 
 But hold on, that sounds extremely insecure! So basically I can only use the FOOD-Me middleware to perform an OIDC method to authenticate as a superuser in the database? What good is that for?
 
-Well, it is good for some things, but yeah otherwise it sucks. Especially if all your users exist as in the database with their complicated permissions schemes. Don't worry though, the proxy offers you a way out as well!
+Well, it is good for some things, like increasing the attack vectors, enabling more security vulnerabilities, perhaps also allowing the Soviets to rule again, but yeah otherwise it sucks. Especially if all your users exist in the database with their complicated permissions schemes. Don't worry though, the proxy offers you a way out as well!
 
 You can decide for yourself what the proxy should do upon successful authentication. There are essentially 3 options:
 
-1. Continue the connection as the superuser
-2. Based on the UserInfo data, pick up the username from the OIDC claims and assume the user for the connection session
-3. Continue as the superuser, but use OPA for handling access and modifying the input queries
+1. Continue the connection as the superuser (yeaaah)
+2. Based on the UserInfo data, pick up the username from the OIDC claims and assume the user for the connection session (boooo)
+3. Continue as the superuser, but use OPA for handling access and modifying the input queries (hmmmmm)
 
 That's right, FOOD-Me does more than you'd initially think!
 
