@@ -54,7 +54,7 @@ That's right, FOOD-Me does more than you'd initially think!
 
 There are 2 methods to do this:
 
-1. Directly in the DSN as a user specification. Instead of the `username` and `password` fields, you can just omit the `password` field and specify the `username` as `username=access_token=${my_access_token};refresh_token=${my_refresh_token}`. The proxy will automatically parse this and use it to fetch the OIDC identity.
+1. Directly in the DSN as a user specification. Instead of the `user` and `password` fields, you can just omit the `password` field and specify the `user` as `user=access_token=${my_access_token};refresh_token=${my_refresh_token}`. The proxy will automatically parse this and use it to fetch the OIDC identity.
 2. Use the proxy RestAPI endpoint. The main problem with the direct DSN entry is that many common drivers (such as ODBC) restrict the length of the username to 255 characters. That's not enough to send long JWT tokens. The proxy thus offers you to set these via a RestAPI endpoint `POST :${API_PORT}/connection`, which expects you to send the access and refresh tokens, and in return will give you a unique `username` to be used in the DSN connection. A simple Python example (assuming `localhost` for simplicity)
 
    ```python
@@ -89,7 +89,7 @@ Jokes aside, let's get into some nitty-gritty boring nerd stuff.
 | Destination Type                          | The database type                                                                                         | --destination-database-type             | DESTINATION_TYPE                      | postgres                                |
 | Destination Username                      | The superuser username                                                                                    | --destination-username                  | DESTINATION_USERNAME                  | string                                  |
 | Destination Password                      | The superuser password                                                                                    | --destination-password                  | DESTINATION_PASSWORD                  | string                                  |
-| Destination Log Upstream                  | Flag whether to perform a debug log of all packets coming from the destination datbase                    | --destination-log-upstream              | DESTINATION_LOG_UPSTREAM              | boolean                                 |
+| Destination Log Upstream                  | Flag whether to perform a debug log of all packets coming from the destination database                   | --destination-log-upstream              | DESTINATION_LOG_UPSTREAM              | boolean                                 |
 | Destination Log Downstream                | Flag whether to perform a debug log of all packets coming from the client                                 | --destination-log-downstream            | DESTINATION_LOG_DOWNSTREAM            | boolean                                 |
 | OIDC Enabled                              | Flag specifying whether OIDC verification is enabled                                                      | --oidc-enabled                          | OIDC_ENABLED                          | boolean                                 |
 | OIDC Client ID                            | The global OIDC client ID                                                                                 | --oidc-client-id                        | OIDC_CLIENT_ID                        | string                                  |
