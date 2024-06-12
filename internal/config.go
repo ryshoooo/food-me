@@ -31,11 +31,13 @@ type Configuration struct {
 	OIDCUserInfoURL  string `long:"oidc-user-info-url" env:"OIDC_USER_INFO_URL" description:"OIDC User Info URL"`
 
 	// OIDC-Database
-	EDatabaseClientID                string `long:"oidc-database-client-id" env:"OIDC_DATABASE_CLIENT_ID" description:"OIDC Database Client ID mapping"`
-	EDatabaseClientSecret            string `long:"oidc-database-client-secret" env:"OIDC_DATABASE_CLIENT_SECRET" description:"OIDC Database Client Secret mapping"`
-	OIDCDatabaseFallBackToBaseClient bool   `long:"oidc-database-fallback-to-base-client" env:"OIDC_DATABASE_FALLBACK_TO_BASE_CLIENT" description:"Fall back to the base client if the client ID is not found"`
-	OIDCDatabaseClientID             map[string]string
-	OIDCDatabaseClientSecret         map[string]string
+	EDatabaseClientID                  string `long:"oidc-database-client-id" env:"OIDC_DATABASE_CLIENT_ID" description:"OIDC Database Client ID mapping"`
+	EDatabaseClientSecret              string `long:"oidc-database-client-secret" env:"OIDC_DATABASE_CLIENT_SECRET" description:"OIDC Database Client Secret mapping"`
+	OIDCDatabaseFallBackToBaseClient   bool   `long:"oidc-database-fallback-to-base-client" env:"OIDC_DATABASE_FALLBACK_TO_BASE_CLIENT" description:"Fall back to the base client if the client ID is not found"`
+	OIDCDatabaseClientID               map[string]string
+	OIDCDatabaseClientSecret           map[string]string
+	OIDCAssumeUserSession              bool   `long:"oidc-assume-user-session" env:"OIDC_ASSUME_USER_SESSION" description:"Assume the user role upon successful authentication"`
+	OIDCAssumeUserSessionUsernameClaim string `long:"oidc-assume-user-session-username-claim" env:"OIDC_ASSUME_USER_SESSION_USERNAME_CLAIM" default:"preferred_username" description:"Username claim of the UserInfo response to use as the username for the connection session"`
 
 	// Server
 	ServerPort int `long:"port" env:"PORT" default:"2099" description:"Server proxy port"`
