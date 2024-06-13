@@ -77,6 +77,7 @@ Jokes aside, let's get into some nitty-gritty boring nerd stuff.
 - [x] Postgres
 - [ ] Microsoft SQL Server
 - [ ] MySQL/MariaDB
+- [ ] OracleDB
 
 ## Configuration options
 
