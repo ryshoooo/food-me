@@ -38,6 +38,7 @@ type Configuration struct {
 	OIDCDatabaseClientSecret           map[string]string
 	OIDCAssumeUserSession              bool   `long:"oidc-assume-user-session" env:"OIDC_ASSUME_USER_SESSION" description:"Assume the user role upon successful authentication"`
 	OIDCAssumeUserSessionUsernameClaim string `long:"oidc-assume-user-session-username-claim" env:"OIDC_ASSUME_USER_SESSION_USERNAME_CLAIM" default:"preferred_username" description:"Username claim of the UserInfo response to use as the username for the connection session"`
+	OIDCAssumeUserSessionAllowEscape   bool   `long:"oidc-assume-user-session-allow-escape" env:"OIDC_ASSUME_USER_SESSION_ALLOW_ESCAPE" description:"Allow the user to escape the assumed session"`
 
 	// Server
 	ServerPort int `long:"port" env:"PORT" default:"2099" description:"Server proxy port"`

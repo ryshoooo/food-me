@@ -8,6 +8,7 @@ import (
 	"net"
 	"strings"
 
+	"github.com/blastrain/vitess-sqlparser/sqlparser"
 	"github.com/sirupsen/logrus"
 	"github.com/xdg-go/scram"
 )
@@ -33,6 +34,7 @@ type PostgresHandler struct {
 	OIDCDatabaseClients              map[string]*OIDCDatabaseClientSpec
 	AssumeUserSession                bool
 	UsernameClaim                    string
+	AllowSessionEscape               bool
 
 	Database   string
 	OIDCClient *OIDCClient
@@ -45,7 +47,7 @@ func NewPostgresHandler(
 	oidcClientId, oidcClientSecret, oidcTokenUrl, oidcUserInfoUrl string,
 	oidcBaseClientFallback bool,
 	oidcDatabaseClients map[string]*OIDCDatabaseClientSpec,
-	assumeUserSession bool, usernameClaim string,
+	assumeUserSession bool, usernameClaim string, allowSessionEscape bool,
 ) *PostgresHandler {
 	return &PostgresHandler{
 		Address:                          address,
@@ -63,6 +65,7 @@ func NewPostgresHandler(
 		OIDCDatabaseClients:              oidcDatabaseClients,
 		AssumeUserSession:                assumeUserSession,
 		UsernameClaim:                    usernameClaim,
+		AllowSessionEscape:               allowSessionEscape,
 	}
 }
 
@@ -167,7 +170,25 @@ func (h *PostgresHandler) PipeClientNicely(client, dest net.Conn) {
 			h.Logger.Errorf("Error reading from client: %v", err)
 			break
 		}
-		// TODO: Possible data manipulation :)
+		if len(data) == 0 {
+			h.Logger.Info("Client closed connection")
+			break
+		}
+
+		if strings.Contains(strings.ToLower(string(data[:len(data)-1])), "reset session authorization") && !h.AllowSessionEscape {
+			h.Logger.Info("Session escape detected, ignoring the request")
+			h.sendErrorMessage(client, "28000", fmt.Errorf("session escape detected"))
+			h.Write(client, []byte{90, 0, 0, 0, 5, 69}, "client")
+			continue
+		}
+
+		stmt, err := sqlparser.Parse(string(data[:len(data)-1]))
+		if err != nil || stmt == nil {
+			h.Logger.Errorf("Error parsing SQL: %v", err)
+			dest.Write(append(op, append(size, data...)...))
+			continue
+		}
+		h.Logger.Debugf("Parsed SQL statement: %s", sqlparser.String(stmt))
 		dest.Write(append(op, append(size, data...)...))
 	}
 }
@@ -614,7 +635,6 @@ func (h *PostgresHandler) assumeUserSession(dest net.Conn, userinfo map[string]i
 	// Send the auth request
 	msg := []byte{'Q'}
 	q := []byte("BEGIN")
-	// q := []byte(fmt.Sprintf("BEGIN; SET SESSION AUTHORIZATION %s; COMMIT;", username))
 	q = append(q, 0)
 	size := createPacketSize(len(q) + 4)
 	msg = append(msg, size...)

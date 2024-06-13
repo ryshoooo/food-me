@@ -40,6 +40,7 @@ func GetHandler(conf *Configuration, logger *logrus.Logger) (IHandler, error) {
 				dbc,
 				conf.OIDCAssumeUserSession,
 				conf.OIDCAssumeUserSessionUsernameClaim,
+				conf.OIDCAssumeUserSessionAllowEscape,
 			),
 			nil
 	default:
