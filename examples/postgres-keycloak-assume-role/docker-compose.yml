@@ -30,13 +30,13 @@ services:
       DESTINATION_LOG_DOWNSTREAM: true
       PORT: 2099
       OIDC_ENABLED: true
-      OIDC_CLIENT_ID: admin-cli
-      # OIDC_CLIENT_SECRET: ''
+      OIDC_CLIENT_ID: pg-superadmin
+      OIDC_CLIENT_SECRET: 'secret'
       OIDC_TOKEN_URL: http://keycloak:8080/realms/master/protocol/openid-connect/token
       OIDC_USER_INFO_URL: http://keycloak:8080/realms/master/protocol/openid-connect/userinfo
       OIDC_DATABASE_FALLBACK_TO_BASE_CLIENT: true
-      # OIDC_ASSUME_USER_SESSION: true
-      # OIDC_ASSUME_USER_SESSION_USERNAME_CLAIM: preferred_username
+      OIDC_ASSUME_USER_SESSION: true
+      OIDC_ASSUME_USER_SESSION_USERNAME_CLAIM: preferred_username
       API_PORT: 10000
     ports:
       - 5432:2099

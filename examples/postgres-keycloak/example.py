@@ -27,6 +27,7 @@ resp = requests.post(
 user = resp["username"]
 dsn = f"dbname=postgres host=localhost port=5432 user={user}"
 conn = psycopg2.connect(dsn)
+conn.autocommit = True
 
 # Execute a query
 cur = conn.cursor()

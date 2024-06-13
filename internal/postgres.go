@@ -8,6 +8,7 @@ import (
 	"net"
 	"strings"
 
+	"github.com/blastrain/vitess-sqlparser/sqlparser"
 	"github.com/sirupsen/logrus"
 	"github.com/xdg-go/scram"
 )
@@ -31,6 +32,9 @@ type PostgresHandler struct {
 	OIDCUserInfoURL                  string
 	OIDCDatabaseFallBackToBaseClient bool
 	OIDCDatabaseClients              map[string]*OIDCDatabaseClientSpec
+	AssumeUserSession                bool
+	UsernameClaim                    string
+	AllowSessionEscape               bool
 
 	Database   string
 	OIDCClient *OIDCClient
@@ -43,6 +47,7 @@ func NewPostgresHandler(
 	oidcClientId, oidcClientSecret, oidcTokenUrl, oidcUserInfoUrl string,
 	oidcBaseClientFallback bool,
 	oidcDatabaseClients map[string]*OIDCDatabaseClientSpec,
+	assumeUserSession bool, usernameClaim string, allowSessionEscape bool,
 ) *PostgresHandler {
 	return &PostgresHandler{
 		Address:                          address,
@@ -58,6 +63,9 @@ func NewPostgresHandler(
 		OIDCUserInfoURL:                  oidcUserInfoUrl,
 		OIDCDatabaseFallBackToBaseClient: oidcBaseClientFallback,
 		OIDCDatabaseClients:              oidcDatabaseClients,
+		AssumeUserSession:                assumeUserSession,
+		UsernameClaim:                    usernameClaim,
+		AllowSessionEscape:               allowSessionEscape,
 	}
 }
 
@@ -143,7 +151,7 @@ func (h *PostgresHandler) PipeForever(upstream, client net.Conn, upstreamName st
 
 func (h *PostgresHandler) PipeClientNicely(client, dest net.Conn) {
 	for {
-		op, size, data, err := h.ReadClientMessage(client)
+		op, size, data, err := h.ReadFullMessage(client, "client", h.LogDownstream)
 		if h.OIDCClient != nil && !h.OIDCClient.IsAccessTokenValid() {
 			h.Logger.Debug("Access token is invalid, refreshing the token")
 			err = h.OIDCClient.RefreshAccessToken()
@@ -162,7 +170,25 @@ func (h *PostgresHandler) PipeClientNicely(client, dest net.Conn) {
 			h.Logger.Errorf("Error reading from client: %v", err)
 			break
 		}
-		// TODO: Possible data manipulation :)
+		if len(data) == 0 {
+			h.Logger.Info("Client closed connection")
+			break
+		}
+
+		if strings.Contains(strings.ToLower(string(data[:len(data)-1])), "reset session authorization") && !h.AllowSessionEscape {
+			h.Logger.Info("Session escape detected, ignoring the request")
+			h.sendErrorMessage(client, "28000", fmt.Errorf("session escape detected"))
+			h.Write(client, []byte{90, 0, 0, 0, 5, 69}, "client")
+			continue
+		}
+
+		stmt, err := sqlparser.Parse(string(data[:len(data)-1]))
+		if err != nil || stmt == nil {
+			h.Logger.Errorf("Error parsing SQL: %v", err)
+			dest.Write(append(op, append(size, data...)...))
+			continue
+		}
+		h.Logger.Debugf("Parsed SQL statement: %s", sqlparser.String(stmt))
 		dest.Write(append(op, append(size, data...)...))
 	}
 }
@@ -269,7 +295,7 @@ func (h *PostgresHandler) Authenticate(conn, dest net.Conn, sizebuff []byte) err
 
 	h.Database = dv
 
-	// TODO: Verify tokens
+	// Verify tokens
 	if !h.OIDCEnabled {
 		h.Logger.Info("OIDC is disabled, proxy all the requests going forward")
 		h.Write(dest, sizebuff, "db")
@@ -313,8 +339,31 @@ func (h *PostgresHandler) Authenticate(conn, dest net.Conn, sizebuff []byte) err
 		return err
 	}
 
-	// Send OK to client
+	// Auth successful, send the auth OK to the client
 	err = h.Write(conn, []byte{82, 0, 0, 0, 8, 0, 0, 0, 0}, "client")
+	if err != nil {
+		return err
+	}
+
+	// Pipe the rest of the metadata until ready for query
+	err = h.ReadUntilReadyForQuery(dest, "authentication", true, conn)
+	if err != nil {
+		return err
+	}
+
+	// TODO: Create user in the database if it does not exist
+
+	// Assume user session
+	if h.AssumeUserSession {
+		h.Logger.Info("Assuming user session")
+		err = h.assumeUserSession(dest, userinfo)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Send OK to client
+	err = h.Write(conn, []byte{90, 0, 0, 0, 5, 73}, "client")
 	if err != nil {
 		return err
 	}
@@ -342,22 +391,22 @@ func (h *PostgresHandler) ReadMessage(conn net.Conn, expR byte) ([]byte, error) 
 	return r, nil
 }
 
-func (h *PostgresHandler) ReadClientMessage(conn net.Conn) ([]byte, []byte, []byte, error) {
-	operation, err := h.Read(conn, 1, "client")
+func (h *PostgresHandler) ReadFullMessage(conn net.Conn, name string, log bool) ([]byte, []byte, []byte, error) {
+	operation, err := h.Read(conn, 1, name)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	size, err := h.Read(conn, 4, "client")
+	size, err := h.Read(conn, 4, name)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 	sizeInt := calculatePacketSize(size)
-	data, err := h.Read(conn, sizeInt-4, "client")
+	data, err := h.Read(conn, sizeInt-4, name)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	if h.LogDownstream {
-		h.Logger.Debugf("Operation: %v (%s); Read %v bytes from client: %s", operation, operation, sizeInt, data)
+	if log {
+		h.Logger.Debugf("Operation: %v (%s); Read %v bytes from %s: %s", operation, operation, sizeInt, name, data)
 	}
 	return operation, size, data, nil
 }
@@ -572,6 +621,74 @@ func (h *PostgresHandler) handleSCRAMSHA256Auth(dest net.Conn) error {
 	return nil
 }
 
+func (h *PostgresHandler) assumeUserSession(dest net.Conn, userinfo map[string]interface{}) error {
+	// Get the username
+	var username string
+	u := userinfo[h.UsernameClaim]
+	switch v := u.(type) {
+	case string:
+		username = u.(string)
+	default:
+		return fmt.Errorf("unexpected username claim type: %v with value %v", v, u)
+	}
+
+	// Send the auth request
+	msg := []byte{'Q'}
+	q := []byte("BEGIN")
+	q = append(q, 0)
+	size := createPacketSize(len(q) + 4)
+	msg = append(msg, size...)
+	msg = append(msg, q...)
+	err := h.Write(dest, msg, "db")
+	if err != nil {
+		return err
+	}
+
+	err = h.ReadUntilReadyForQuery(dest, "setting session authorization", false, nil)
+	if err != nil {
+		return err
+	}
+
+	msg = []byte{'Q'}
+	q = []byte(fmt.Sprintf("SET SESSION AUTHORIZATION %s", username))
+	q = append(q, 0)
+	size = createPacketSize(len(q) + 4)
+	msg = append(msg, size...)
+	msg = append(msg, q...)
+	err = h.Write(dest, msg, "db")
+	if err != nil {
+		return err
+	}
+	err = h.ReadUntilReadyForQuery(dest, "setting session authorization", false, nil)
+	if err != nil {
+		return err
+	}
+	h.Logger.Info("Assumed user session")
+	return nil
+}
+
+func (h *PostgresHandler) ReadUntilReadyForQuery(dest net.Conn, process string, pipeData bool, client net.Conn) error {
+	for {
+		op, size, data, err := h.ReadFullMessage(dest, "db", h.LogUpstream)
+		if err != nil {
+			return err
+		}
+		if op[0] == 'E' {
+			return fmt.Errorf("error %s: %v", process, getErrorMessage(data))
+		}
+		if op[0] == 'Z' {
+			break
+		}
+		if pipeData {
+			err = h.Write(client, append(op, append(size, data...)...), "client")
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func calculatePacketSize(sizebuff []byte) int {
 	return int(sizebuff[0])<<24 | int(sizebuff[1])<<16 | int(sizebuff[2])<<8 | int(sizebuff[3])
 }
@@ -588,4 +705,17 @@ func checkAuthenticationSuccess(r []byte) bool {
 		return false
 	}
 	return true
+}
+
+func getErrorMessage(data []byte) string {
+	parts := bytes.Split(data, []byte{0})
+	for _, p := range parts {
+		if len(p) == 0 {
+			continue
+		}
+		if p[0] == 'M' {
+			return string(p[1:])
+		}
+	}
+	return "unknown error"
 }
