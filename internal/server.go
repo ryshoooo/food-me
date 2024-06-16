@@ -7,19 +7,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type IServer interface {
-	Start() error
-	Listen(listener net.Listener) error
-}
-
-type IHandler interface {
-	Handle(client net.Conn) error
-}
-
-type IUpstreamHandler interface {
-	Connect() (net.Conn, error)
-}
-
 type Server struct {
 	Port    int
 	Logger  *logrus.Logger
