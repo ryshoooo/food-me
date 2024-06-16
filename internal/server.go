@@ -13,7 +13,11 @@ type IServer interface {
 }
 
 type IHandler interface {
-	Handle(connection net.Conn) error
+	Handle(client net.Conn) error
+}
+
+type IUpstreamHandler interface {
+	Connect() (net.Conn, error)
 }
 
 type Server struct {

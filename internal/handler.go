@@ -2,11 +2,24 @@ package foodme
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/sirupsen/logrus"
 )
 
+type BasicUpstreamHandler struct {
+	Address string
+}
+
+func (h *BasicUpstreamHandler) Connect() (net.Conn, error) {
+	return net.Dial("tcp", h.Address)
+}
+
 func GetHandler(conf *Configuration, logger *logrus.Logger) (IHandler, error) {
+	upstreamHandler := &BasicUpstreamHandler{
+		Address: conf.DestinationHost + ":" + fmt.Sprint(conf.DestinationPort),
+	}
+
 	switch conf.DestinationDatabaseType {
 	case "postgres":
 		dbc := make(map[string]*OIDCDatabaseClientSpec)
@@ -28,6 +41,7 @@ func GetHandler(conf *Configuration, logger *logrus.Logger) (IHandler, error) {
 				conf.DestinationHost+":"+fmt.Sprint(conf.DestinationPort),
 				conf.DestinationUsername,
 				conf.DestinationPassword,
+				upstreamHandler,
 				logger,
 				conf.DestinationLogUpstream,
 				conf.DestinationLogDownstream,
