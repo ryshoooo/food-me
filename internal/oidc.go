@@ -13,6 +13,7 @@ import (
 )
 
 type OIDCClient struct {
+	HTTPClient   IHttpClient
 	ClientID     string
 	ClientSecret string
 	TokenURL     string
@@ -21,8 +22,9 @@ type OIDCClient struct {
 	RefreshToken string
 }
 
-func NewOIDCClient(clientId, clientSecret, tokenUrl, userInfoUrl, accessToken, refreshToken string) *OIDCClient {
+func NewOIDCClient(httpClient IHttpClient, clientId, clientSecret, tokenUrl, userInfoUrl, accessToken, refreshToken string) *OIDCClient {
 	return &OIDCClient{
+		HTTPClient:   httpClient,
 		ClientID:     clientId,
 		ClientSecret: clientSecret,
 		TokenURL:     tokenUrl,
@@ -68,9 +70,6 @@ func (c *OIDCClient) IsAccessTokenValid() bool {
 }
 
 func (c *OIDCClient) RefreshAccessToken() error {
-	// Make the refresh token request
-	httpClient := &http.Client{}
-
 	data := url.Values{}
 	data.Set("client_id", c.ClientID)
 	if c.ClientSecret != "" {
@@ -85,7 +84,7 @@ func (c *OIDCClient) RefreshAccessToken() error {
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := httpClient.Do(req)
+	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -118,8 +117,6 @@ func (c *OIDCClient) GetUserInfo() (map[string]interface{}, error) {
 		return nil, fmt.Errorf("access token is required to get user info")
 	}
 
-	httpClient := &http.Client{}
-
 	req, err := http.NewRequest(http.MethodGet, c.UserInfoURL, nil)
 	if err != nil {
 		return nil, err
@@ -127,7 +124,7 @@ func (c *OIDCClient) GetUserInfo() (map[string]interface{}, error) {
 
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.AccessToken))
 
-	resp, err := httpClient.Do(req)
+	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}

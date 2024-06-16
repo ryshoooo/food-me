@@ -27,6 +27,7 @@ type PostgresHandler struct {
 	Logger                           *logrus.Logger
 	LogUpstream                      bool
 	LogDownstream                    bool
+	HTTPClient                       IHttpClient
 	OIDCEnabled                      bool
 	OIDCClientID                     string
 	OIDCClientSecret                 string
@@ -51,6 +52,7 @@ func NewPostgresHandler(
 	upstreamHandler IUpstreamHandler,
 	logger *logrus.Logger,
 	logUpstream, logDownstream, oidcEnabled bool,
+	httpClient IHttpClient,
 	oidcClientId, oidcClientSecret, oidcTokenUrl, oidcUserInfoUrl string,
 	oidcBaseClientFallback bool,
 	oidcDatabaseClients map[string]*OIDCDatabaseClientSpec,
@@ -64,6 +66,7 @@ func NewPostgresHandler(
 		Logger:                           logger,
 		LogUpstream:                      logUpstream,
 		LogDownstream:                    logDownstream,
+		HTTPClient:                       httpClient,
 		OIDCEnabled:                      oidcEnabled,
 		OIDCClientID:                     oidcClientId,
 		OIDCClientSecret:                 oidcClientSecret,
@@ -287,7 +290,7 @@ func (h *PostgresHandler) authenticate(sizebuff []byte) error {
 		clientSecret = cv.ClientSecret
 	}
 
-	h.oidcClient = NewOIDCClient(clientId, clientSecret, h.OIDCTokenURL, h.OIDCUserInfoURL, accessToken, refreshToken)
+	h.oidcClient = NewOIDCClient(h.HTTPClient, clientId, clientSecret, h.OIDCTokenURL, h.OIDCUserInfoURL, accessToken, refreshToken)
 	if !h.oidcClient.IsAccessTokenValid() {
 		h.Logger.Info("Access token is invalid, refreshing the token")
 		err = h.oidcClient.RefreshAccessToken()

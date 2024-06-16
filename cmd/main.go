@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 
 	"github.com/ryshoooo/food-me/api"
@@ -16,7 +17,8 @@ func main() {
 	}
 
 	logger := foodme.NewLogger(conf)
-	handler, err := foodme.GetHandler(conf, logger)
+	httpClient := &http.Client{}
+	handler, err := foodme.GetHandler(conf, logger, httpClient)
 	if err != nil {
 		logger.Errorf("Failed to establish a database handler: %s", err)
 		os.Exit(1)

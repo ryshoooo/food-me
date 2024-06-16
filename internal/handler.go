@@ -15,7 +15,7 @@ func (h *BasicUpstreamHandler) Connect() (net.Conn, error) {
 	return net.Dial("tcp", h.Address)
 }
 
-func GetHandler(conf *Configuration, logger *logrus.Logger) (IHandler, error) {
+func GetHandler(conf *Configuration, logger *logrus.Logger, httpClient IHttpClient) (IHandler, error) {
 	upstreamHandler := &BasicUpstreamHandler{
 		Address: conf.DestinationHost + ":" + fmt.Sprint(conf.DestinationPort),
 	}
@@ -46,6 +46,7 @@ func GetHandler(conf *Configuration, logger *logrus.Logger) (IHandler, error) {
 				conf.DestinationLogUpstream,
 				conf.DestinationLogDownstream,
 				conf.OIDCEnabled,
+				httpClient,
 				conf.OIDCClientID,
 				conf.OIDCClientSecret,
 				conf.OIDCTokenURL,
