@@ -2,7 +2,7 @@
 
 _**F**inally a <ins>G**OO**D</ins> **D**atabase **M**iddlewar**e**_
 
-Nom nom nom :P
+Nom nom nom :PP
 
 A simple generic database middleware, that supports OIDC as an authentication method and allows for deep access control.
 
