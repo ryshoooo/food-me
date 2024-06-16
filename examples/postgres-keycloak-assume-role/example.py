@@ -1,6 +1,7 @@
 import keycloak
 import psycopg2
 import requests
+import logging
 
 # Create postgres user and client
 admin = keycloak.KeycloakAdmin(
@@ -59,7 +60,22 @@ admin.create_user(
     },
     exist_ok=True,
 )
-cur.execute("CREATE USER michael;")
+create_user_sql = """
+DO
+$do$
+BEGIN
+   IF EXISTS (
+      SELECT FROM pg_catalog.pg_roles
+      WHERE  rolname = 'michael') THEN
+
+      RAISE NOTICE 'Role "michael" already exists. Skipping.';
+   ELSE
+      CREATE USER michael;
+   END IF;
+END
+$do$;
+"""
+cur.execute(create_user_sql)
 conn.commit()
 conn.close()
 
@@ -81,6 +97,10 @@ cur.execute("SELECT current_user;")
 print(cur.fetchone())
 
 # Can I escape it?
-cur.execute("RESET SESSION AUTHORIZATION")
+try:
+    cur.execute("RESET SESSION AUTHORIZATION")
+except Exception:
+    logging.exception("Expected not allowed escape")
+
 cur.execute("SELECT current_user;")
 print(cur.fetchone())

@@ -1,6 +1,7 @@
 import keycloak
 import psycopg2
 import requests
+import logging
 
 # Get Keycloak token
 oid = keycloak.KeycloakOpenID(
@@ -63,8 +64,11 @@ resp = requests.post(
 user = resp["username"]
 
 # Should fail to connect to the postgres database
-dsn = f"dbname=postgres host=localhost port=5432 user={user}"
-conn = psycopg2.connect(dsn)
+try:
+    dsn = f"dbname=postgres host=localhost port=5432 user={user}"
+    conn = psycopg2.connect(dsn)
+except Exception:
+    logging.exception("Failed to connect to the database as expected")
 
 # Should succeed to the test database
 dsn = f"dbname=test host=localhost port=5432 user={user}"
