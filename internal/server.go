@@ -36,6 +36,11 @@ func (s *Server) Listen(listener net.Listener) error {
 		}
 
 		s.Logger.Infof("Accepted connection: %s", conn.RemoteAddr().String())
-		go s.Handler.Handle(conn)
+		go func() {
+			err := s.Handler.Handle(conn)
+			if err != nil {
+				s.Logger.WithField("component", "server").Errorf("Error handling connection: %v", err)
+			}
+		}()
 	}
 }

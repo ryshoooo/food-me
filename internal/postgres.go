@@ -244,9 +244,7 @@ func (h *PostgresHandler) authenticate(sizebuff []byte) error {
 		uvs := strings.Split(uv, ";")
 		if len(uvs) < 2 {
 			h.Logger.Info("Username does not contain OIDC data, proxy all the requests going forward")
-			h.write(sizebuff, "upstream")
-			h.write(auth, "upstream")
-			return nil
+			return h.write(append(sizebuff, auth...), "upstream")
 		}
 		h.Logger.Debugf("OIDC data: %v", uvs)
 		for _, ov := range uvs {
@@ -263,9 +261,7 @@ func (h *PostgresHandler) authenticate(sizebuff []byte) error {
 	h.Logger.Debugf("Refresh token: %v", refreshToken)
 	if accessToken == "" || refreshToken == "" {
 		h.Logger.Info("Access token or refresh token is missing, proxy all the requests going forward")
-		h.write(sizebuff, "upstream")
-		h.write(auth, "upstream")
-		return nil
+		return h.write(append(sizebuff, auth...), "upstream")
 	}
 
 	// Strange situation here, we have access and refresh tokens, but OIDC is disabled
@@ -431,7 +427,10 @@ func (h *PostgresHandler) handleClearPasswordAuth() error {
 	msg = append(msg, s...)
 	msg = append(msg, pwd...)
 	msg = append(msg, 0)
-	h.write(msg, "upstream")
+	err := h.write(msg, "upstream")
+	if err != nil {
+		return err
+	}
 
 	// Read auth response
 	r, err := h.readMessage('R')
@@ -469,7 +468,10 @@ func (h *PostgresHandler) handleMD5PasswordAuth(key string) error {
 	msg = append(msg, s...)
 	msg = append(msg, []byte(pwd)...)
 	msg = append(msg, 0)
-	h.write(msg, "upstream")
+	err = h.write(msg, "upstream")
+	if err != nil {
+		return err
+	}
 
 	// Handle response
 	r, err := h.readMessage('R')
@@ -509,7 +511,10 @@ func (h *PostgresHandler) handleSCRAMSHA256Auth() error {
 	size := createPacketSize(len(pwd) + 4)
 	msg = append(msg, size...)
 	msg = append(msg, pwd...)
-	h.write(msg, "upstream")
+	err = h.write(msg, "upstream")
+	if err != nil {
+		return err
+	}
 
 	// Get the data for second step
 	r, err := h.readMessage('R')
@@ -538,7 +543,10 @@ func (h *PostgresHandler) handleSCRAMSHA256Auth() error {
 	size = createPacketSize(len(secondMsg) + 4)
 	msg = append(msg, size...)
 	msg = append(msg, []byte(secondMsg)...)
-	h.write(msg, "upstream")
+	err = h.write(msg, "upstream")
+	if err != nil {
+		return err
+	}
 
 	// Get the data for the third step
 	r, err = h.readMessage('R')
@@ -686,10 +694,19 @@ func (h *PostgresHandler) proxyDownstream() {
 				break
 			}
 			h.Logger.Debugf("Read %v bytes from upstream: %v; %s", n, buffer[:n], buffer[:n])
-			h.client.Write(buffer[:n])
+			_, err = h.client.Write(buffer[:n])
+			if err != nil {
+				h.Logger.Errorf("Error writing to client: %v", err)
+				break
+			}
 		}
 	} else {
-		io.Copy(h.client, h.upstream)
+		_, err := io.Copy(h.client, h.upstream)
+		if err != nil {
+			if err != io.EOF {
+				h.Logger.Errorf("Error copying from upstream to client: %v", err)
+			}
+		}
 	}
 }
 
@@ -719,16 +736,32 @@ func (h *PostgresHandler) proxyUpstream() {
 			err = h.oidcClient.RefreshAccessToken()
 			if err != nil {
 				h.Logger.Errorf("Error refreshing access token: %v", err)
-				h.sendErrorMessage("28000", fmt.Errorf("error refreshing access token: %v", err))
-				h.write(readyMessage, "client")
+				err = h.sendErrorMessage("28000", fmt.Errorf("error refreshing access token: %v", err))
+				if err != nil {
+					h.Logger.Errorf("Error sending error message to client: %v", err)
+					break
+				}
+				err = h.write(readyMessage, "client")
+				if err != nil {
+					h.Logger.Errorf("Error writing to client: %v", err)
+					break
+				}
 				continue
 			}
 		}
 
 		if strings.Contains(strings.ToLower(string(data[:len(data)-1])), "reset session authorization") && !h.AllowSessionEscape {
 			h.Logger.Info("Session escape detected, ignoring the request")
-			h.sendErrorMessage("28000", fmt.Errorf("session escape detected"))
-			h.write(readyMessage, "client")
+			err = h.sendErrorMessage("28000", fmt.Errorf("session escape detected"))
+			if err != nil {
+				h.Logger.Errorf("Error sending error message to client: %v", err)
+				break
+			}
+			err = h.write(readyMessage, "client")
+			if err != nil {
+				h.Logger.Errorf("Error writing to client: %v", err)
+				break
+			}
 			continue
 		}
 
@@ -736,11 +769,19 @@ func (h *PostgresHandler) proxyUpstream() {
 		stmt, err := sqlparser.Parse(string(data[:len(data)-1]))
 		if err != nil || stmt == nil {
 			h.Logger.Errorf("Error parsing SQL: %v", err)
-			h.upstream.Write(append(op, append(size, data...)...))
+			_, err := h.upstream.Write(append(op, append(size, data...)...))
+			if err != nil {
+				h.Logger.Errorf("Error writing to upstream: %v", err)
+				break
+			}
 			continue
 		}
 
 		h.Logger.Debugf("Parsed SQL statement: %s", sqlparser.String(stmt))
-		h.upstream.Write(append(op, append(size, data...)...))
+		_, err = h.upstream.Write(append(op, append(size, data...)...))
+		if err != nil {
+			h.Logger.Errorf("Error writing to upstream: %v", err)
+			break
+		}
 	}
 }

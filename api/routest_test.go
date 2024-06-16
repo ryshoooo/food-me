@@ -76,7 +76,8 @@ func TestCreateNewConnectionOK(t *testing.T) {
 	handler(w, r)
 	assert.DeepEqual(t, w.headers.headers, []int{200})
 	data := &NewConnectionResponse{}
-	json.Unmarshal(w.buffer.buffer, data)
+	err := json.Unmarshal(w.buffer.buffer, data)
+	assert.NilError(t, err)
 	assert.Assert(t, data.Username != "")
 	at, rt := foodme.GlobalState.GetTokens(data.Username)
 	assert.Equal(t, at, "a")
