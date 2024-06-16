@@ -8,3 +8,5 @@ RUN apt-get update -y && \
 WORKDIR /example
 COPY . .
 RUN poetry install
+
+CMD poetry run python example.py
