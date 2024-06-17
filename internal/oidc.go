@@ -62,7 +62,7 @@ func (c *OIDCClient) IsAccessTokenValid() bool {
 
 	// Verify exp claim
 	dt, err := token.Claims.GetExpirationTime()
-	if err != nil {
+	if err != nil || dt == nil {
 		return false
 	}
 
