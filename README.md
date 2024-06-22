@@ -68,6 +68,16 @@ Simple really. This is just a configuration option in the proxy when you start i
 
 However, there is an option to have multiple clients configured for a single database! Usually, a single database does not consist of a single database (sounds weird, but it's true). This is also why you specify the `database` field in your DSN, you are also specifying which database you want to connect to. Well, FOOD-Me allows you to define different OIDC clients for different databases. This way you can control who has access to which database in your OIDC provider instead!
 
+### How do I assume a user session?
+
+As mentioned above, it is also possible to assume a user (role) session with the OIDC connection. For this flow to work, all you need is to set 3 values upon starting the proxy:
+
+- `OIDC_ASSUME_USER_SESSION` needs to be `true`, by default it is false and this flow is then skipped
+- `OIDC_ASSUME_USER_SESSION_USERNAME_CLAIM` specifies which claim key to expect and take from the userinfo JSON structure and use it as the value for user/role to impersonate. By default, the key is set to `preferred_username` as it is the OIDC standard for the username field, but you can change it to anything you want, especially useful for custom claims in the UserInfo structure. In all honesty, it's not the best name for the configuration, as most of the time people use roles rather than users in a database, so you probably want to use this as a role assumption rather than a user assumption. Which you can absolutely do, even though it is called "username claim". But meh...
+- `OIDC_ASSUME_USER_SESSION_ALLOW_ESCAPE` is another boolean value, which determines whether escaping from the user/role session is allowed. Usually, you want this value to be `false`, but you have the prison break option here if you want to have some fun.
+
+With these values set, the proxy will try to retrieve the field from the UserInfo structure and attempt to perform a user/role impersonation. Thus if the connection is successful, the connection will look and feel as an authenticated user/role direct database connection.
+
 # Technical specification
 
 Jokes aside, let's get into some nitty-gritty boring nerd stuff.
