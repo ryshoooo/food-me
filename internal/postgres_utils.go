@@ -1,6 +1,9 @@
 package foodme
 
-import "bytes"
+import (
+	"bytes"
+	"strings"
+)
 
 func calculatePacketSize(sizebuff []byte) int {
 	return int(sizebuff[0])<<24 | int(sizebuff[1])<<16 | int(sizebuff[2])<<8 | int(sizebuff[3])
@@ -31,4 +34,13 @@ func getErrorMessage(data []byte) string {
 		}
 	}
 	return "unknown error"
+}
+
+func isEscapeSession(query string) bool {
+	q := strings.ToLower(query)
+	return strings.Contains(q, "reset session authorization") ||
+		strings.Contains(q, "set session authorization") ||
+		strings.Contains(q, "set role") ||
+		strings.Contains(q, "set local authorization") ||
+		strings.Contains(q, "set local role")
 }
