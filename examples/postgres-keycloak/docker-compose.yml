@@ -38,6 +38,7 @@ services:
       # OIDC_ASSUME_USER_SESSION: true
       # OIDC_ASSUME_USER_SESSION_USERNAME_CLAIM: preferred_username
       API_PORT: 10000
+      API_USERNAME_LIFETIME: 40
     ports:
       - 5432:2099
       - 10000:10000

@@ -17,6 +17,6 @@ func main() {
 	logger := foodme.NewLogger(conf)
 
 	server := foodme.NewServer(conf, logger)
-	go api.Start(logger, conf.ApiPort, conf.ApiUsernameLifetime)
+	go api.Start(logger, conf.ApiPort, conf.ApiUsernameLifetime, conf.ApiGarbageCollectionPeriod)
 	logger.Fatal(server.Start())
 }

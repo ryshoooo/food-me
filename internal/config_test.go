@@ -41,6 +41,7 @@ func TestNewConfigurationDefaults(t *testing.T) {
 	assert.Equal(t, c.ServerPort, 2099)
 	assert.Equal(t, c.ApiPort, 10000)
 	assert.Equal(t, c.ApiUsernameLifetime, 3600)
+	assert.Equal(t, c.ApiGarbageCollectionPeriod, 60)
 }
 
 func TestNewConfigurationFull(t *testing.T) {
@@ -68,6 +69,7 @@ func TestNewConfigurationFull(t *testing.T) {
 		"--port", "9876",
 		"--api-port", "8888",
 		"--api-username-lifetime", "7200",
+		"--api-garbage-collection-period", "6000",
 	})
 	assert.NilError(t, err)
 	assert.Equal(t, c.LogLevel, "debug")
@@ -95,6 +97,7 @@ func TestNewConfigurationFull(t *testing.T) {
 	assert.Equal(t, c.ServerPort, 9876)
 	assert.Equal(t, c.ApiPort, 8888)
 	assert.Equal(t, c.ApiUsernameLifetime, 7200)
+	assert.Equal(t, c.ApiGarbageCollectionPeriod, 6000)
 }
 
 func TestBadMapping(t *testing.T) {

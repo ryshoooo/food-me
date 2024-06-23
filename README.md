@@ -116,6 +116,7 @@ Jokes aside, let's get into some nitty-gritty boring nerd stuff.
 | Port                                      | Port where the proxy is started (default 2099)                                                            | --port                                    | PORT                                    | number                                  |
 | API Port                                  | Port where the proxy will serve the RestAPI                                                               | --api-port                                | API_PORT                                | number                                  |
 | API Username Lifetime                     | Lifetime of the username created by the API in seconds                                                    | --api-username-lifetime                   | API_USERNAME_LIFETIME                   | number                                  |
+| API GC Period                             | The period in seconds when the garbage collection should run                                              | --api-garbage-collection-period           | API_GARBAGE_COLLECTION_PERIOD           | number                                  |
 
 TODO:
 

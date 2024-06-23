@@ -44,6 +44,18 @@ func (s *State) GetTokens(username string) (accessToken, refreshToken string) {
 	return connection.AccessToken, connection.RefreshToken
 }
 
+func (s *State) GetExpiredUsernames() []string {
+	s.Mutex.RLock()
+	defer s.Mutex.RUnlock()
+	usernames := make([]string, 0)
+	for username, connection := range s.Connections {
+		if !connection.IsAlive() {
+			usernames = append(usernames, username)
+		}
+	}
+	return usernames
+}
+
 func (s *State) DeleteConnection(username string) {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
