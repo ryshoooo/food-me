@@ -115,6 +115,8 @@ Jokes aside, let's get into some nitty-gritty boring nerd stuff.
 | OIDC Assume User Session - Allow escape   | Flag which determines whether an escape from user session is allowed during the session                   | --oidc-assume-user-session-allow-escape   | OIDC_ASSUME_USER_SESSION_ALLOW_ESCAPE   | boolean                                 |
 | Port                                      | Port where the proxy is started (default 2099)                                                            | --port                                    | PORT                                    | number                                  |
 | API Port                                  | Port where the proxy will serve the RestAPI                                                               | --api-port                                | API_PORT                                | number                                  |
+| API Username Lifetime                     | Lifetime of the username created by the API in seconds                                                    | --api-username-lifetime                   | API_USERNAME_LIFETIME                   | number                                  |
+| API GC Period                             | The period in seconds when the garbage collection should run                                              | --api-garbage-collection-period           | API_GARBAGE_COLLECTION_PERIOD           | number                                  |
 
 TODO:
 

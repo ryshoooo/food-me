@@ -58,7 +58,7 @@ func TestHandleErrorResponse(t *testing.T) {
 
 func TestCreateNewConnectionFail(t *testing.T) {
 	log := logrus.StandardLogger()
-	handler := CreateNewConnection(log)
+	handler := CreateNewConnection(log, 60)
 	w := MockResponseWriter{buffer: &MockBuffer{buffer: []byte{}}, headers: &MockHeaders{headers: []int{}}}
 	body := &MockBody{Body: "bad json"}
 	r := &http.Request{Body: body}
@@ -69,7 +69,7 @@ func TestCreateNewConnectionFail(t *testing.T) {
 
 func TestCreateNewConnectionOK(t *testing.T) {
 	log := logrus.StandardLogger()
-	handler := CreateNewConnection(log)
+	handler := CreateNewConnection(log, 60)
 	w := MockResponseWriter{buffer: &MockBuffer{buffer: []byte{}}, headers: &MockHeaders{headers: []int{}}}
 	body := &MockBody{Body: "{\"access_token\":\"a\",\"refresh_token\":\"r\"}"}
 	r := &http.Request{Body: body}
