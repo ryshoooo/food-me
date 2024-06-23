@@ -44,7 +44,8 @@ type Configuration struct {
 	ServerPort int `long:"port" env:"PORT" default:"2099" description:"Server proxy port"`
 
 	// API
-	ApiPort int `long:"api-port" env:"API_PORT" default:"10000" description:"API port"`
+	ApiPort             int `long:"api-port" env:"API_PORT" default:"10000" description:"API port"`
+	ApiUsernameLifetime int `long:"api-username-lifetime" env:"API_USERNAME_LIFETIME" default:"3600" description:"Username lifetime in seconds"`
 }
 
 func NewConfiguration(args []string) (*Configuration, error) {

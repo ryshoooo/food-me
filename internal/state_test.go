@@ -16,7 +16,7 @@ func TestState(t *testing.T) {
 	assert.Equal(t, "", r)
 
 	// Add connection
-	testState.AddConnection("test", "a", "r")
+	testState.AddConnection("test", "a", "r", 60)
 	a, r = testState.GetTokens("test")
 	assert.Equal(t, "a", a)
 	assert.Equal(t, "r", r)

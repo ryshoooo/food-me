@@ -1,6 +1,9 @@
 package foodme
 
-import "sync"
+import (
+	"sync"
+	"time"
+)
 
 type State struct {
 	Connections map[string]Connection
@@ -9,14 +12,19 @@ type State struct {
 type Connection struct {
 	AccessToken  string
 	RefreshToken string
+	ExpiresIn    int64
 }
 
 var GlobalState = &State{Connections: make(map[string]Connection), Mutex: sync.RWMutex{}}
 
-func (s *State) AddConnection(username string, accessToken, refreshToken string) {
+func (s *State) AddConnection(username string, accessToken, refreshToken string, lifetime int) {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
-	s.Connections[username] = Connection{AccessToken: accessToken, RefreshToken: refreshToken}
+	s.Connections[username] = Connection{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresIn:    time.Now().Add(time.Duration(lifetime) * time.Second).Unix(),
+	}
 }
 
 func (s *State) GetTokens(username string) (accessToken, refreshToken string) {

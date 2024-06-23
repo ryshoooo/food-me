@@ -17,7 +17,7 @@ func HandleErrorResponse(w http.ResponseWriter, statusCode int, message string) 
 	}
 }
 
-func CreateNewConnection(logger *logrus.Logger) http.HandlerFunc {
+func CreateNewConnection(logger *logrus.Logger, usernameLifetime int) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		logger.WithFields(logrus.Fields{"component": "api"}).Infof("[%p] %s %s %s", r, r.Method, r.URL, r.RemoteAddr)
 		defer r.Body.Close()
@@ -29,7 +29,7 @@ func CreateNewConnection(logger *logrus.Logger) http.HandlerFunc {
 			return
 		}
 		id := uuid.New().String()
-		foodme.GlobalState.AddConnection(id, data.AccessToken, data.RefreshToken)
+		foodme.GlobalState.AddConnection(id, data.AccessToken, data.RefreshToken, usernameLifetime)
 		w.WriteHeader(http.StatusOK)
 		err = json.NewEncoder(w).Encode(&NewConnectionResponse{Username: id})
 		if err != nil {
