@@ -14,6 +14,9 @@ psycopg2 = "^2.9.9"
 pyodbc = "^5.1.0"
 requests = "^2.32.3"
 
+[[tool.poetry.source]]
+name = "PyPI"
+priority = "primary"
 
 [build-system]
 requires = ["poetry-core"]
