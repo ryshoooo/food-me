@@ -15,6 +15,10 @@ type Connection struct {
 	ExpiresIn    int64
 }
 
+func (c *Connection) IsAlive() bool {
+	return time.Now().Unix() < c.ExpiresIn
+}
+
 var GlobalState = &State{Connections: make(map[string]Connection), Mutex: sync.RWMutex{}}
 
 func (s *State) AddConnection(username string, accessToken, refreshToken string, lifetime int) {
@@ -32,6 +36,9 @@ func (s *State) GetTokens(username string) (accessToken, refreshToken string) {
 	defer s.Mutex.RUnlock()
 	connection, ok := s.Connections[username]
 	if !ok {
+		return "", ""
+	}
+	if !connection.IsAlive() {
 		return "", ""
 	}
 	return connection.AccessToken, connection.RefreshToken
