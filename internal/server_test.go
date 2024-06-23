@@ -7,8 +7,7 @@ import (
 )
 
 func TestNewServer(t *testing.T) {
-	server := NewServer(10000, nil, nil)
-	assert.Equal(t, server.Port, 10000)
+	server := NewServer(nil, nil)
+	assert.Assert(t, server.Configuration == nil)
 	assert.Assert(t, server.Logger == nil)
-	assert.Assert(t, server.Handler == nil)
 }

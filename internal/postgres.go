@@ -769,7 +769,7 @@ func (h *PostgresHandler) proxyUpstream() {
 		stmt, err := sqlparser.Parse(string(data[:len(data)-1]))
 		if err != nil || stmt == nil {
 			h.Logger.Errorf("Error parsing SQL: %v", err)
-			_, err := h.upstream.Write(append(op, append(size, data...)...))
+			err = h.write(append(op, append(size, data...)...), "upstream")
 			if err != nil {
 				h.Logger.Errorf("Error writing to upstream: %v", err)
 				break
@@ -778,7 +778,7 @@ func (h *PostgresHandler) proxyUpstream() {
 		}
 
 		h.Logger.Debugf("Parsed SQL statement: %s", sqlparser.String(stmt))
-		_, err = h.upstream.Write(append(op, append(size, data...)...))
+		err = h.write(append(op, append(size, data...)...), "upstream")
 		if err != nil {
 			h.Logger.Errorf("Error writing to upstream: %v", err)
 			break
