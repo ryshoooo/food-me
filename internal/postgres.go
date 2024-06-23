@@ -750,7 +750,7 @@ func (h *PostgresHandler) proxyUpstream() {
 			}
 		}
 
-		if strings.Contains(strings.ToLower(string(data[:len(data)-1])), "reset session authorization") && !h.AllowSessionEscape {
+		if isEscapeSession(string(data[:len(data)-1])) && !h.AllowSessionEscape {
 			h.Logger.Info("Session escape detected, ignoring the request")
 			err = h.sendErrorMessage("28000", fmt.Errorf("session escape detected"))
 			if err != nil {

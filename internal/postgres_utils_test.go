@@ -39,3 +39,13 @@ func TestGetErrorMessage(t *testing.T) {
 	arr = append(arr, []byte{0, 3, 4, 2, 0, 0, 1, 1, 0}...)
 	assert.Equal(t, getErrorMessage(arr), "custom error message")
 }
+
+func TestIsEscapeSession(t *testing.T) {
+	assert.Assert(t, isEscapeSession("blahblahreset session authorizationblahblah"))
+	assert.Assert(t, isEscapeSession("blahblaset session authorizationblahblah"))
+	assert.Assert(t, isEscapeSession("blahblahreset set role session authorizationblahblah"))
+	assert.Assert(t, isEscapeSession("blahblahset local authorizationionblahblah"))
+	assert.Assert(t, isEscapeSession("blset local roleonblahblah"))
+	assert.Assert(t, !isEscapeSession("OK"))
+	assert.Assert(t, !isEscapeSession("ESCAPE NOW!"))
+}
