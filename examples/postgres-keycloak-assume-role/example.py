@@ -1,7 +1,12 @@
+import logging
+import sys
+
 import keycloak
 import psycopg2
+import pyodbc
 import requests
-import logging
+
+USE_ODBC = sys.argv[1] == "odbc"
 
 # Create postgres user and client
 admin = keycloak.KeycloakAdmin(
@@ -42,8 +47,19 @@ resp = requests.post(
     json={"access_token": tokens["access_token"], "refresh_token": tokens["refresh_token"]},
 ).json()
 user = resp["username"]
-dsn = f"dbname=postgres host=localhost port=5432 user={user}"
-conn = psycopg2.connect(dsn)
+
+if USE_ODBC:
+    dsn = (
+        "DRIVER={PostgreSQL Unicode};"
+        "DATABASE=postgres;"
+        f"UID={user};"
+        "SERVER=localhost;"
+        "PORT=5432;"
+    )
+    conn = pyodbc.connect(dsn)
+else:
+    dsn = f"dbname=postgres host=localhost port=5432 user={user}"
+    conn = psycopg2.connect(dsn)
 
 # Execute a query
 cur = conn.cursor()
@@ -81,15 +97,24 @@ conn.close()
 
 # Connect as michael user
 tokens = oid.token(username="michael", password="michael")
-
-# Connect as postgres user
 resp = requests.post(
     "http://localhost:10000/connection",
     json={"access_token": tokens["access_token"], "refresh_token": tokens["refresh_token"]},
 ).json()
 user = resp["username"]
-dsn = f"dbname=postgres host=localhost port=5432 user={user}"
-conn = psycopg2.connect(dsn)
+
+if USE_ODBC:
+    dsn = (
+        "DRIVER={PostgreSQL Unicode};"
+        "DATABASE=postgres;"
+        f"UID={user};"
+        "SERVER=localhost;"
+        "PORT=5432;"
+    )
+    conn = pyodbc.connect(dsn)
+else:
+    dsn = f"dbname=postgres host=localhost port=5432 user={user}"
+    conn = psycopg2.connect(dsn)
 
 # Execute a query
 cur = conn.cursor()
@@ -99,6 +124,11 @@ print(cur.fetchone())
 # Can I escape it?
 try:
     cur.execute("RESET SESSION AUTHORIZATION")
+except Exception:
+    logging.exception("Expected not allowed escape")
+
+try:
+    cur.execute("SET SESSION AUTHORIZATION postgres")
 except Exception:
     logging.exception("Expected not allowed escape")
 

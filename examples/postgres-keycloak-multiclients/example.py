@@ -1,7 +1,12 @@
+import logging
+import sys
+
 import keycloak
 import psycopg2
+import pyodbc
 import requests
-import logging
+
+USE_ODBC = sys.argv[1] == "odbc"
 
 # Get Keycloak token
 oid = keycloak.KeycloakOpenID(
@@ -16,7 +21,19 @@ resp = requests.post(
 ).json()
 user = resp["username"]
 dsn = f"dbname=postgres host=localhost port=5432 user={user}"
-conn = psycopg2.connect(dsn)
+
+if USE_ODBC:
+    conn_str = (
+        "DRIVER={PostgreSQL Unicode};"
+        "DATABASE=postgres;"
+        f"UID={user};"
+        "SERVER=localhost;"
+        "PORT=5432;"
+    )
+    conn = pyodbc.connect(conn_str)
+else:
+    conn = psycopg2.connect(dsn)
+
 conn.autocommit = True
 
 c = conn.cursor()
@@ -65,11 +82,31 @@ user = resp["username"]
 
 # Should fail to connect to the postgres database
 try:
-    dsn = f"dbname=postgres host=localhost port=5432 user={user}"
-    conn = psycopg2.connect(dsn)
+    if USE_ODBC:
+        dsn = (
+            "DRIVER={PostgreSQL Unicode};"
+            "DATABASE=postgres;"
+            f"UID={user};"
+            "SERVER=localhost;"
+            "PORT=5432;"
+        )
+        conn = pyodbc.connect(dsn)
+    else:
+        dsn = f"dbname=postgres host=localhost port=5432 user={user}"
+        conn = psycopg2.connect(dsn)
 except Exception:
     logging.exception("Failed to connect to the database as expected")
 
 # Should succeed to the test database
-dsn = f"dbname=test host=localhost port=5432 user={user}"
-conn = psycopg2.connect(dsn)
+if USE_ODBC:
+    dsn = (
+        "DRIVER={PostgreSQL Unicode};"
+        "DATABASE=test;"
+        f"UID={user};"
+        "SERVER=localhost;"
+        "PORT=5432;"
+    )
+    conn = pyodbc.connect(dsn)
+else:
+    dsn = f"dbname=test host=localhost port=5432 user={user}"
+    conn = psycopg2.connect(dsn)
