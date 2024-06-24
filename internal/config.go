@@ -39,6 +39,7 @@ type Configuration struct {
 	OIDCAssumeUserSession              bool   `long:"oidc-assume-user-session" env:"OIDC_ASSUME_USER_SESSION" description:"Assume the user role upon successful authentication"`
 	OIDCAssumeUserSessionUsernameClaim string `long:"oidc-assume-user-session-username-claim" env:"OIDC_ASSUME_USER_SESSION_USERNAME_CLAIM" default:"preferred_username" description:"Username claim of the UserInfo response to use as the username for the connection session"`
 	OIDCAssumeUserSessionAllowEscape   bool   `long:"oidc-assume-user-session-allow-escape" env:"OIDC_ASSUME_USER_SESSION_ALLOW_ESCAPE" description:"Allow the user to escape the assumed session"`
+	OIDCPostAuthSQLTemplate            string `long:"oidc-post-auth-sql-template" env:"OIDC_POST_AUTH_SQL_TEMPLATE" description:"SQL template file to execute after a successful OIDC authentication"`
 
 	// Server
 	ServerPort int `long:"port" env:"PORT" default:"2099" description:"Server proxy port"`
@@ -79,6 +80,13 @@ func NewConfiguration(args []string) (*Configuration, error) {
 			return nil, fmt.Errorf("invalid OIDC Database Client Secret mapping: %s", key)
 		}
 		c.OIDCDatabaseClientSecret[kv[0]] = kv[1]
+	}
+
+	// Check whether the template file exists
+	if c.OIDCPostAuthSQLTemplate != "" {
+		if _, err := os.Stat(c.OIDCPostAuthSQLTemplate); os.IsNotExist(err) {
+			return nil, fmt.Errorf("OIDC Post Auth SQL template file does not exist: %s", c.OIDCPostAuthSQLTemplate)
+		}
 	}
 
 	return c, nil

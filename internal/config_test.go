@@ -35,6 +35,7 @@ func TestNewConfigurationDefaults(t *testing.T) {
 	assert.Equal(t, c.OIDCDatabaseFallBackToBaseClient, false)
 	assert.DeepEqual(t, c.OIDCDatabaseClientID, map[string]string{})
 	assert.DeepEqual(t, c.OIDCDatabaseClientSecret, map[string]string{})
+	assert.Equal(t, c.OIDCPostAuthSQLTemplate, "")
 	assert.Equal(t, c.OIDCAssumeUserSession, false)
 	assert.Equal(t, c.OIDCAssumeUserSessionUsernameClaim, "preferred_username")
 	assert.Equal(t, c.OIDCAssumeUserSessionAllowEscape, false)
@@ -63,6 +64,7 @@ func TestNewConfigurationFull(t *testing.T) {
 		"--oidc-database-client-id", "postgres=pg-client-id,stuff=stuff-client-id,secretstuff=secretstuff-client-id",
 		"--oidc-database-client-secret", "postgres=pg-secret,secretstuff=more-secret",
 		"--oidc-database-fallback-to-base-client",
+		"--oidc-post-auth-sql-template", "../data/test_sql.sql",
 		"--oidc-assume-user-session",
 		"--oidc-assume-user-session-username-claim", "db_role",
 		"--oidc-assume-user-session-allow-escape",
@@ -91,6 +93,7 @@ func TestNewConfigurationFull(t *testing.T) {
 	assert.Equal(t, c.OIDCDatabaseFallBackToBaseClient, true)
 	assert.DeepEqual(t, c.OIDCDatabaseClientID, map[string]string{"postgres": "pg-client-id", "stuff": "stuff-client-id", "secretstuff": "secretstuff-client-id"})
 	assert.DeepEqual(t, c.OIDCDatabaseClientSecret, map[string]string{"postgres": "pg-secret", "secretstuff": "more-secret"})
+	assert.Equal(t, c.OIDCPostAuthSQLTemplate, "../data/test_sql.sql")
 	assert.Equal(t, c.OIDCAssumeUserSession, true)
 	assert.Equal(t, c.OIDCAssumeUserSessionUsernameClaim, "db_role")
 	assert.Equal(t, c.OIDCAssumeUserSessionAllowEscape, true)

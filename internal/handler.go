@@ -53,6 +53,7 @@ func GetHandler(conf *Configuration, logger *logrus.Logger, httpClient IHttpClie
 				conf.OIDCUserInfoURL,
 				conf.OIDCDatabaseFallBackToBaseClient,
 				dbc,
+				conf.OIDCPostAuthSQLTemplate,
 				conf.OIDCAssumeUserSession,
 				conf.OIDCAssumeUserSessionUsernameClaim,
 				conf.OIDCAssumeUserSessionAllowEscape,

@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"crypto/md5"
 	"fmt"
+	"html/template"
 	"io"
 	"net"
+	"os"
 	"strings"
 
 	"github.com/blastrain/vitess-sqlparser/sqlparser"
@@ -35,6 +37,7 @@ type PostgresHandler struct {
 	OIDCUserInfoURL                  string
 	OIDCDatabaseFallBackToBaseClient bool
 	OIDCDatabaseClients              map[string]*OIDCDatabaseClientSpec
+	OIDCPostAuthSQLTemplate          string
 	AssumeUserSession                bool
 	UsernameClaim                    string
 	AllowSessionEscape               bool
@@ -56,6 +59,7 @@ func NewPostgresHandler(
 	oidcClientId, oidcClientSecret, oidcTokenUrl, oidcUserInfoUrl string,
 	oidcBaseClientFallback bool,
 	oidcDatabaseClients map[string]*OIDCDatabaseClientSpec,
+	oidcPostAuthTemplate string,
 	assumeUserSession bool, usernameClaim string, allowSessionEscape bool,
 ) *PostgresHandler {
 	return &PostgresHandler{
@@ -74,6 +78,7 @@ func NewPostgresHandler(
 		OIDCUserInfoURL:                  oidcUserInfoUrl,
 		OIDCDatabaseFallBackToBaseClient: oidcBaseClientFallback,
 		OIDCDatabaseClients:              oidcDatabaseClients,
+		OIDCPostAuthSQLTemplate:          oidcPostAuthTemplate,
 		AssumeUserSession:                assumeUserSession,
 		UsernameClaim:                    usernameClaim,
 		AllowSessionEscape:               allowSessionEscape,
@@ -320,7 +325,14 @@ func (h *PostgresHandler) authenticate(sizebuff []byte) error {
 		return err
 	}
 
-	// TODO: Create user in the database if it does not exist
+	// Post-authentication script
+	if h.OIDCPostAuthSQLTemplate != "" {
+		h.Logger.Info("Executing post-authentication script")
+		err = h.executePostAuthStatement()
+		if err != nil {
+			return err
+		}
+	}
 
 	// Assume user session
 	if h.AssumeUserSession {
@@ -631,6 +643,86 @@ func (h *PostgresHandler) readFullMessage(name string) ([]byte, []byte, []byte, 
 	return operation, size, data, nil
 }
 
+func (h *PostgresHandler) executePostAuthStatement() error {
+	tr, err := os.ReadFile(h.OIDCPostAuthSQLTemplate)
+	if err != nil {
+		return err
+	}
+	tmpl, err := template.New("post-auth").Parse(string(tr))
+	if err != nil {
+		return err
+	}
+	var ps bytes.Buffer
+	err = tmpl.Execute(&ps, h.userinfo)
+	if err != nil {
+		return err
+	}
+
+	stmt := ps.String()
+	h.Logger.Debugf("Post-auth statement: %s", stmt)
+
+	err = h.executeQuery(stmt, "post-auth")
+	if err != nil {
+		return err
+	}
+
+	h.Logger.Info("Assumed user session")
+	return nil
+}
+
+func (h *PostgresHandler) executeQuery(query, process string) error {
+	// Start
+	msg := []byte{'Q'}
+	q := []byte("BEGIN")
+	q = append(q, 0)
+	size := createPacketSize(len(q) + 4)
+	msg = append(msg, size...)
+	msg = append(msg, q...)
+	err := h.write(msg, "upstream")
+	if err != nil {
+		return err
+	}
+
+	err = h.readUntilReadyForQuery(process, false)
+	if err != nil {
+		return err
+	}
+
+	// Execute
+	msg = []byte{'Q'}
+	q = []byte(query)
+	q = append(q, 0)
+	size = createPacketSize(len(q) + 4)
+	msg = append(msg, size...)
+	msg = append(msg, q...)
+	err = h.write(msg, "upstream")
+	if err != nil {
+		return err
+	}
+	err = h.readUntilReadyForQuery(process, false)
+	if err != nil {
+		return err
+	}
+
+	// Commit
+	msg = []byte{'Q'}
+	q = []byte("END")
+	q = append(q, 0)
+	size = createPacketSize(len(q) + 4)
+	msg = append(msg, size...)
+	msg = append(msg, q...)
+	err = h.write(msg, "upstream")
+	if err != nil {
+		return err
+	}
+	err = h.readUntilReadyForQuery(process, false)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (h *PostgresHandler) assumeUserSession() error {
 	// Get the username
 	var username string
@@ -647,37 +739,11 @@ func (h *PostgresHandler) assumeUserSession() error {
 		return fmt.Errorf("unexpected username claim type: %v with value %v", v, u)
 	}
 
-	// Send the auth request
-	msg := []byte{'Q'}
-	q := []byte("BEGIN")
-	q = append(q, 0)
-	size := createPacketSize(len(q) + 4)
-	msg = append(msg, size...)
-	msg = append(msg, q...)
-	err := h.write(msg, "upstream")
+	err := h.executeQuery(fmt.Sprintf("SET SESSION AUTHORIZATION %s", username), "setting session authorization")
 	if err != nil {
 		return err
 	}
 
-	err = h.readUntilReadyForQuery("setting session authorization", false)
-	if err != nil {
-		return err
-	}
-
-	msg = []byte{'Q'}
-	q = []byte(fmt.Sprintf("SET SESSION AUTHORIZATION %s", username))
-	q = append(q, 0)
-	size = createPacketSize(len(q) + 4)
-	msg = append(msg, size...)
-	msg = append(msg, q...)
-	err = h.write(msg, "upstream")
-	if err != nil {
-		return err
-	}
-	err = h.readUntilReadyForQuery("setting session authorization", false)
-	if err != nil {
-		return err
-	}
 	h.Logger.Info("Assumed user session")
 	return nil
 }
