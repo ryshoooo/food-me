@@ -121,6 +121,16 @@ func TestBadMapping(t *testing.T) {
 	assert.Error(t, err, "invalid OIDC Database Client Secret mapping: postgres=pg-client-id=somethingelse=just-wrong")
 }
 
+func TestMissingPostAuthTemplate(t *testing.T) {
+	_, err := NewConfiguration([]string{
+		"--destination-database-type", "postgres",
+		"--destination-host", "localhost",
+		"--destination-port", "5432",
+		"--oidc-post-auth-sql-template", "missing-file.sql",
+	})
+	assert.Error(t, err, "OIDC Post Auth SQL template file does not exist: missing-file.sql")
+}
+
 func TestNewLoggerFormatters(t *testing.T) {
 	c, err := NewConfiguration([]string{"--destination-database-type", "postgres", "--destination-host", "localhost", "--destination-port", "5432"})
 	assert.NilError(t, err)
