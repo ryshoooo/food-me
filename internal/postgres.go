@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"crypto/md5"
 	"fmt"
-	"html/template"
 	"io"
 	"net"
 	"os"
 	"strings"
+	"text/template"
 
 	"github.com/blastrain/vitess-sqlparser/sqlparser"
 	"github.com/sirupsen/logrus"
