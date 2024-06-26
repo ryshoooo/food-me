@@ -666,7 +666,7 @@ func (h *PostgresHandler) executePostAuthStatement() error {
 		return err
 	}
 
-	h.Logger.Info("Assumed user session")
+	h.Logger.Info("Post-auth script executed successfully")
 	return nil
 }
 
