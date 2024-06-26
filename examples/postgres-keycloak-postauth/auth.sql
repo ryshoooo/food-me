@@ -19,4 +19,3 @@ ALTER USER {{ .preferred_username }} WITH SUPERUSER;
 {{- else -}}
 ALTER USER {{ .preferred_username }} WITH NOSUPERUSER;
 {{- end -}}
-
