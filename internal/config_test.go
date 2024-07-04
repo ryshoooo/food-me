@@ -33,8 +33,7 @@ func TestNewConfigurationDefaults(t *testing.T) {
 	assert.Equal(t, c.EDatabaseClientID, "")
 	assert.Equal(t, c.EDatabaseClientSecret, "")
 	assert.Equal(t, c.OIDCDatabaseFallBackToBaseClient, false)
-	assert.DeepEqual(t, c.OIDCDatabaseClientID, map[string]string{})
-	assert.DeepEqual(t, c.OIDCDatabaseClientSecret, map[string]string{})
+	assert.DeepEqual(t, c.OIDCDatabaseClients, map[string]*OIDCDatabaseClientSpec{})
 	assert.Equal(t, c.OIDCPostAuthSQLTemplate, "")
 	assert.Equal(t, c.OIDCAssumeUserSession, false)
 	assert.Equal(t, c.OIDCAssumeUserSessionUsernameClaim, "preferred_username")
@@ -91,8 +90,11 @@ func TestNewConfigurationFull(t *testing.T) {
 	assert.Equal(t, c.EDatabaseClientID, "postgres=pg-client-id,stuff=stuff-client-id,secretstuff=secretstuff-client-id")
 	assert.Equal(t, c.EDatabaseClientSecret, "postgres=pg-secret,secretstuff=more-secret")
 	assert.Equal(t, c.OIDCDatabaseFallBackToBaseClient, true)
-	assert.DeepEqual(t, c.OIDCDatabaseClientID, map[string]string{"postgres": "pg-client-id", "stuff": "stuff-client-id", "secretstuff": "secretstuff-client-id"})
-	assert.DeepEqual(t, c.OIDCDatabaseClientSecret, map[string]string{"postgres": "pg-secret", "secretstuff": "more-secret"})
+	assert.DeepEqual(t, c.OIDCDatabaseClients, map[string]*OIDCDatabaseClientSpec{
+		"postgres":    {ClientID: "pg-client-id", ClientSecret: "pg-secret"},
+		"stuff":       {ClientID: "stuff-client-id"},
+		"secretstuff": {ClientID: "secretstuff-client-id", ClientSecret: "more-secret"},
+	})
 	assert.Equal(t, c.OIDCPostAuthSQLTemplate, "../data/test_sql.sql")
 	assert.Equal(t, c.OIDCAssumeUserSession, true)
 	assert.Equal(t, c.OIDCAssumeUserSessionUsernameClaim, "db_role")
@@ -119,6 +121,30 @@ func TestBadMapping(t *testing.T) {
 		"--oidc-database-client-secret", "postgres=pg-client-id=somethingelse=just-wrong",
 	})
 	assert.Error(t, err, "invalid OIDC Database Client Secret mapping: postgres=pg-client-id=somethingelse=just-wrong")
+
+	_, err = NewConfiguration([]string{
+		"--destination-database-type", "postgres",
+		"--destination-host", "localhost",
+		"--destination-port", "5432",
+		"--oidc-database-client-id", "postgres=pg-client-id,postgres=another-client-id",
+	})
+	assert.Error(t, err, "OIDC Database Client ID mapping has a duplicate database: postgres")
+
+	_, err = NewConfiguration([]string{
+		"--destination-database-type", "postgres",
+		"--destination-host", "localhost",
+		"--destination-port", "5432",
+		"--oidc-database-client-secret", "postgres=pg-client-secret,postgres=another-client-secret",
+	})
+	assert.Error(t, err, "OIDC Database Client Secret mapping has a duplicate database: postgres")
+
+	_, err = NewConfiguration([]string{
+		"--destination-database-type", "postgres",
+		"--destination-host", "localhost",
+		"--destination-port", "5432",
+		"--oidc-database-client-secret", "postgres=pg-client-secret",
+	})
+	assert.Error(t, err, "OIDC Database Client Secret mapping does not have a corresponding Client ID: postgres")
 }
 
 func TestMissingPostAuthTemplate(t *testing.T) {

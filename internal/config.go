@@ -9,6 +9,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+type OIDCDatabaseClientSpec struct {
+	ClientID     string
+	ClientSecret string
+}
+
 type Configuration struct {
 	// Log configuration
 	LogLevel  string `long:"log-level" env:"LOG_LEVEL" default:"warn" choice:"trace" choice:"debug" choice:"info" choice:"warn" choice:"error" choice:"fatal" choice:"panic" description:"Log level"`
@@ -33,9 +38,8 @@ type Configuration struct {
 	// OIDC-Database
 	EDatabaseClientID                  string `long:"oidc-database-client-id" env:"OIDC_DATABASE_CLIENT_ID" description:"OIDC Database Client ID mapping"`
 	EDatabaseClientSecret              string `long:"oidc-database-client-secret" env:"OIDC_DATABASE_CLIENT_SECRET" description:"OIDC Database Client Secret mapping"`
+	OIDCDatabaseClients                map[string]*OIDCDatabaseClientSpec
 	OIDCDatabaseFallBackToBaseClient   bool   `long:"oidc-database-fallback-to-base-client" env:"OIDC_DATABASE_FALLBACK_TO_BASE_CLIENT" description:"Fall back to the base client if the client ID is not found"`
-	OIDCDatabaseClientID               map[string]string
-	OIDCDatabaseClientSecret           map[string]string
 	OIDCAssumeUserSession              bool   `long:"oidc-assume-user-session" env:"OIDC_ASSUME_USER_SESSION" description:"Assume the user role upon successful authentication"`
 	OIDCAssumeUserSessionUsernameClaim string `long:"oidc-assume-user-session-username-claim" env:"OIDC_ASSUME_USER_SESSION_USERNAME_CLAIM" default:"preferred_username" description:"Username claim of the UserInfo response to use as the username for the connection session"`
 	OIDCAssumeUserSessionAllowEscape   bool   `long:"oidc-assume-user-session-allow-escape" env:"OIDC_ASSUME_USER_SESSION_ALLOW_ESCAPE" description:"Allow the user to escape the assumed session"`
@@ -51,7 +55,7 @@ type Configuration struct {
 }
 
 func NewConfiguration(args []string) (*Configuration, error) {
-	c := &Configuration{OIDCDatabaseClientID: make(map[string]string), OIDCDatabaseClientSecret: make(map[string]string)}
+	c := &Configuration{OIDCDatabaseClients: make(map[string]*OIDCDatabaseClientSpec)}
 
 	// Parse the command line arguments
 	p := flags.NewParser(c, flags.Default)
@@ -61,6 +65,7 @@ func NewConfiguration(args []string) (*Configuration, error) {
 	}
 
 	// parse database client id and secret
+	var clientids = make(map[string]string)
 	for _, key := range strings.Split(c.EDatabaseClientID, ",") {
 		if key == "" {
 			continue
@@ -69,8 +74,13 @@ func NewConfiguration(args []string) (*Configuration, error) {
 		if len(kv) != 2 {
 			return nil, fmt.Errorf("invalid OIDC Database Client ID mapping: %s", key)
 		}
-		c.OIDCDatabaseClientID[kv[0]] = kv[1]
+		if _, ok := clientids[kv[0]]; ok {
+			return nil, fmt.Errorf("OIDC Database Client ID mapping has a duplicate database: %s", kv[0])
+		}
+		clientids[kv[0]] = kv[1]
 	}
+
+	var clientsecrets = make(map[string]string)
 	for _, key := range strings.Split(c.EDatabaseClientSecret, ",") {
 		if key == "" {
 			continue
@@ -79,7 +89,21 @@ func NewConfiguration(args []string) (*Configuration, error) {
 		if len(kv) != 2 {
 			return nil, fmt.Errorf("invalid OIDC Database Client Secret mapping: %s", key)
 		}
-		c.OIDCDatabaseClientSecret[kv[0]] = kv[1]
+		if _, ok := clientsecrets[kv[0]]; ok {
+			return nil, fmt.Errorf("OIDC Database Client Secret mapping has a duplicate database: %s", kv[0])
+		}
+		clientsecrets[kv[0]] = kv[1]
+	}
+
+	for db, cid := range clientids {
+		c.OIDCDatabaseClients[db] = &OIDCDatabaseClientSpec{ClientID: cid}
+	}
+	for db, csec := range clientsecrets {
+		if spec, ok := c.OIDCDatabaseClients[db]; ok {
+			spec.ClientSecret = csec
+		} else {
+			return nil, fmt.Errorf("OIDC Database Client Secret mapping does not have a corresponding Client ID: %s", db)
+		}
 	}
 
 	// Check whether the template file exists

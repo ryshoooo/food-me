@@ -15,11 +15,6 @@ import (
 	"github.com/xdg-go/scram"
 )
 
-type OIDCDatabaseClientSpec struct {
-	ClientID     string
-	ClientSecret string
-}
-
 type PostgresHandler struct {
 	// Init
 	Address                          string
