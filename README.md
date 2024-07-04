@@ -78,6 +78,14 @@ As mentioned above, it is also possible to assume a user (role) session with the
 
 With these values set, the proxy will try to retrieve the field from the UserInfo structure and attempt to perform a user/role impersonation. Thus if the connection is successful, the connection will look and feel as an authenticated user/role direct database connection.
 
+### How do I not get bothered with user database administration?
+
+The assume user session is great if the user/role already exists in the database. If it does not, it just fails to execute. Maybe that's fine, failures exist for a reason. But, the flow has a requirement of managing users and roles in the database as a separate step. Would be nice not to handle that manually.
+
+That's where the middleware offers you a post-auth script execution. In this case, you can specify `OIDC_POST_AUTH_SQL_TEMPLATE` to point to a file, which contains a [golang template](https://pkg.go.dev/text/template) of a SQL script, which is automatically executed after successful user authentication and before the assume user session directive. The template is parsed with the UserInfo context fetched from the OIDC UserInfo endpoint containing the specific authenticated user's data, thus you can parametrize the statements based on the attributes of the user from the OIDC provider.
+
+You can see a detailed example of how to use the post-auth SQL script to control whether a user is a superuser in the Postgres database via group memberships at https://github.com/ryshoooo/food-me/tree/main/examples/postgres-keycloak-postauth.
+
 # Technical specification
 
 Jokes aside, let's get into some nitty-gritty boring nerd stuff.
@@ -121,5 +129,4 @@ Jokes aside, let's get into some nitty-gritty boring nerd stuff.
 
 TODO:
 
-- Add examples
 - Also, code this shit up
