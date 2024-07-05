@@ -71,13 +71,13 @@ func NewConfiguration(args []string) (*Configuration, error) {
 			continue
 		}
 		kv := strings.Split(key, "=")
-		if len(kv) != 2 {
+		if len(kv) < 2 {
 			return nil, fmt.Errorf("invalid OIDC Database Client ID mapping: %s", key)
 		}
 		if _, ok := clientids[kv[0]]; ok {
 			return nil, fmt.Errorf("OIDC Database Client ID mapping has a duplicate database: %s", kv[0])
 		}
-		clientids[kv[0]] = kv[1]
+		clientids[kv[0]] = strings.Join(kv[1:], "=")
 	}
 
 	var clientsecrets = make(map[string]string)
@@ -86,13 +86,13 @@ func NewConfiguration(args []string) (*Configuration, error) {
 			continue
 		}
 		kv := strings.Split(key, "=")
-		if len(kv) != 2 {
+		if len(kv) < 2 {
 			return nil, fmt.Errorf("invalid OIDC Database Client Secret mapping: %s", key)
 		}
 		if _, ok := clientsecrets[kv[0]]; ok {
 			return nil, fmt.Errorf("OIDC Database Client Secret mapping has a duplicate database: %s", kv[0])
 		}
-		clientsecrets[kv[0]] = kv[1]
+		clientsecrets[kv[0]] = strings.Join(kv[1:], "=")
 	}
 
 	for db, cid := range clientids {

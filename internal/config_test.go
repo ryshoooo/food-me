@@ -106,21 +106,34 @@ func TestNewConfigurationFull(t *testing.T) {
 }
 
 func TestBadMapping(t *testing.T) {
-	_, err := NewConfiguration([]string{
+	c, err := NewConfiguration([]string{
 		"--destination-database-type", "postgres",
 		"--destination-host", "localhost",
 		"--destination-port", "5432",
 		"--oidc-database-client-id", "postgres=pg-client-id=somethingelse=just-wrong",
+		"--oidc-database-client-secret", "postgres=pg-client-id=somethingelse=just-wrong",
 	})
-	assert.Error(t, err, "invalid OIDC Database Client ID mapping: postgres=pg-client-id=somethingelse=just-wrong")
+	assert.DeepEqual(t, c.OIDCDatabaseClients, map[string]*OIDCDatabaseClientSpec{"postgres": {
+		ClientID:     "pg-client-id=somethingelse=just-wrong",
+		ClientSecret: "pg-client-id=somethingelse=just-wrong",
+	}})
+	assert.NilError(t, err)
 
 	_, err = NewConfiguration([]string{
 		"--destination-database-type", "postgres",
 		"--destination-host", "localhost",
 		"--destination-port", "5432",
-		"--oidc-database-client-secret", "postgres=pg-client-id=somethingelse=just-wrong",
+		"--oidc-database-client-id", "postgres",
 	})
-	assert.Error(t, err, "invalid OIDC Database Client Secret mapping: postgres=pg-client-id=somethingelse=just-wrong")
+	assert.Error(t, err, "invalid OIDC Database Client ID mapping: postgres")
+
+	_, err = NewConfiguration([]string{
+		"--destination-database-type", "postgres",
+		"--destination-host", "localhost",
+		"--destination-port", "5432",
+		"--oidc-database-client-secret", "postgres",
+	})
+	assert.Error(t, err, "invalid OIDC Database Client Secret mapping: postgres")
 
 	_, err = NewConfiguration([]string{
 		"--destination-database-type", "postgres",
