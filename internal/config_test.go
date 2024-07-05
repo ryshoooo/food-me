@@ -35,6 +35,9 @@ func TestNewConfigurationDefaults(t *testing.T) {
 	assert.Equal(t, c.OIDCDatabaseFallBackToBaseClient, false)
 	assert.DeepEqual(t, c.OIDCDatabaseClients, map[string]*OIDCDatabaseClientSpec{})
 	assert.Equal(t, c.OIDCPostAuthSQLTemplate, "")
+	assert.Equal(t, c.ServerTLSEnabled, false)
+	assert.Equal(t, c.ServerTLSCertificateFile, "")
+	assert.Equal(t, c.ServerTLSCertificateKeyFile, "")
 	assert.Equal(t, c.OIDCAssumeUserSession, false)
 	assert.Equal(t, c.OIDCAssumeUserSessionUsernameClaim, "preferred_username")
 	assert.Equal(t, c.OIDCAssumeUserSessionAllowEscape, false)
@@ -67,6 +70,9 @@ func TestNewConfigurationFull(t *testing.T) {
 		"--oidc-assume-user-session",
 		"--oidc-assume-user-session-username-claim", "db_role",
 		"--oidc-assume-user-session-allow-escape",
+		"--server-tls-enabled",
+		"--server-tls-certificate-file", "../data/cert.pem",
+		"--server-tls-certificate-key-file", "../data/key.pem",
 		"--port", "9876",
 		"--api-port", "8888",
 		"--api-username-lifetime", "7200",
@@ -99,6 +105,9 @@ func TestNewConfigurationFull(t *testing.T) {
 	assert.Equal(t, c.OIDCAssumeUserSession, true)
 	assert.Equal(t, c.OIDCAssumeUserSessionUsernameClaim, "db_role")
 	assert.Equal(t, c.OIDCAssumeUserSessionAllowEscape, true)
+	assert.Equal(t, c.ServerTLSEnabled, true)
+	assert.Equal(t, c.ServerTLSCertificateFile, "../data/cert.pem")
+	assert.Equal(t, c.ServerTLSCertificateKeyFile, "../data/key.pem")
 	assert.Equal(t, c.ServerPort, 9876)
 	assert.Equal(t, c.ApiPort, 8888)
 	assert.Equal(t, c.ApiUsernameLifetime, 7200)
@@ -168,6 +177,44 @@ func TestMissingPostAuthTemplate(t *testing.T) {
 		"--oidc-post-auth-sql-template", "missing-file.sql",
 	})
 	assert.Error(t, err, "OIDC Post Auth SQL template file does not exist: missing-file.sql")
+}
+
+func TestBadTLSConfiguration(t *testing.T) {
+	_, err := NewConfiguration([]string{
+		"--destination-database-type", "postgres",
+		"--destination-host", "localhost",
+		"--destination-port", "5432",
+		"--server-tls-enabled",
+	})
+	assert.Error(t, err, "TLS certificate file is required")
+
+	_, err = NewConfiguration([]string{
+		"--destination-database-type", "postgres",
+		"--destination-host", "localhost",
+		"--destination-port", "5432",
+		"--server-tls-enabled",
+		"--server-tls-certificate-file", "missing-file.pem",
+	})
+	assert.Error(t, err, "TLS certificate file does not exist: missing-file.pem")
+
+	_, err = NewConfiguration([]string{
+		"--destination-database-type", "postgres",
+		"--destination-host", "localhost",
+		"--destination-port", "5432",
+		"--server-tls-enabled",
+		"--server-tls-certificate-file", "../data/cert.pem",
+	})
+	assert.Error(t, err, "TLS certificate key file is required")
+
+	_, err = NewConfiguration([]string{
+		"--destination-database-type", "postgres",
+		"--destination-host", "localhost",
+		"--destination-port", "5432",
+		"--server-tls-enabled",
+		"--server-tls-certificate-file", "../data/cert.pem",
+		"--server-tls-certificate-key-file", "missing-key.pem",
+	})
+	assert.Error(t, err, "TLS certificate key file does not exist: missing-key.pem")
 }
 
 func TestNewLoggerFormatters(t *testing.T) {

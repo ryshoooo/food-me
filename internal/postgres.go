@@ -3,6 +3,7 @@ package foodme
 import (
 	"bytes"
 	"crypto/md5"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
@@ -33,6 +34,9 @@ type PostgresHandler struct {
 	OIDCDatabaseFallBackToBaseClient bool
 	OIDCDatabaseClients              map[string]*OIDCDatabaseClientSpec
 	OIDCPostAuthSQLTemplate          string
+	TLSEnabled                       bool
+	TLSCertificateFile               string
+	TLSCertificateKeyFile            string
 	AssumeUserSession                bool
 	UsernameClaim                    string
 	AllowSessionEscape               bool
@@ -55,6 +59,7 @@ func NewPostgresHandler(
 	oidcBaseClientFallback bool,
 	oidcDatabaseClients map[string]*OIDCDatabaseClientSpec,
 	oidcPostAuthTemplate string,
+	tlsEnabled bool, tlsCertificateFile, tlsCertificateKeyFile string,
 	assumeUserSession bool, usernameClaim string, allowSessionEscape bool,
 ) *PostgresHandler {
 	return &PostgresHandler{
@@ -74,6 +79,9 @@ func NewPostgresHandler(
 		OIDCDatabaseFallBackToBaseClient: oidcBaseClientFallback,
 		OIDCDatabaseClients:              oidcDatabaseClients,
 		OIDCPostAuthSQLTemplate:          oidcPostAuthTemplate,
+		TLSEnabled:                       tlsEnabled,
+		TLSCertificateFile:               tlsCertificateFile,
+		TLSCertificateKeyFile:            tlsCertificateKeyFile,
 		AssumeUserSession:                assumeUserSession,
 		UsernameClaim:                    usernameClaim,
 		AllowSessionEscape:               allowSessionEscape,
@@ -141,14 +149,44 @@ func (h *PostgresHandler) startup() ([]byte, error) {
 	if err != nil {
 		return []byte{}, err
 	}
+
 	h.Logger.Debugf("Read startup response from upstream: %v", resp)
-	if resp[0] != 'N' {
+	if resp[0] != 'N' && resp[0] != 'S' {
 		return []byte{}, fmt.Errorf("unexpected response from upstream: %v", resp)
 	}
-	err = h.write(resp, "client")
-	if err != nil {
-		return []byte{}, err
+
+	if resp[0] == 'S' {
+		h.Logger.Info("TLS requested from upstream")
+		if !h.TLSEnabled {
+			h.Logger.Warn("TLS is not enabled, but upstream requested it. The data sent to the client will be decrypted!")
+			h.Logger.Warn("Please enable TLS to secure the connection, this is a security risk!")
+			h.Logger.Warn("To enable TLS, set the server-tls-enabled flag to true and specify the certificate and key files")
+			h.Logger.Warn("IMMEDIATELY! or not.. up to you really...")
+			h.Logger.Debug("Settings response to 'N' to continue without TLS")
+			resp[0] = 'N'
+
+			err = h.write(resp, "client")
+			if err != nil {
+				return []byte{}, err
+			}
+		} else {
+			h.Logger.Debug("Upgrading downstream connection with configured certificate")
+			return []byte{}, fmt.Errorf("Server TLS not implemented yet")
+			// tls.LoadX509KeyPair("cert.pem", "key.pem")
+			// h.client = tls.Server(h.client, &tls.Config{InsecureSkipVerify: true, Certificates: []tls.Certificate{{}}})
+			// err = h.write(resp, "client")
+			// if err != nil {
+			// 	return []byte{}, err
+			// }
+		}
+		h.upstream = tls.Client(h.upstream, &tls.Config{InsecureSkipVerify: true})
+	} else {
+		err = h.write(resp, "client")
+		if err != nil {
+			return []byte{}, err
+		}
 	}
+
 	h.Logger.Info("Startup successful")
 
 	// Read the next size from the client

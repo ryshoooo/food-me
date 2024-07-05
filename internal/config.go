@@ -45,6 +45,11 @@ type Configuration struct {
 	OIDCAssumeUserSessionAllowEscape   bool   `long:"oidc-assume-user-session-allow-escape" env:"OIDC_ASSUME_USER_SESSION_ALLOW_ESCAPE" description:"Allow the user to escape the assumed session"`
 	OIDCPostAuthSQLTemplate            string `long:"oidc-post-auth-sql-template" env:"OIDC_POST_AUTH_SQL_TEMPLATE" description:"SQL template file to execute after a successful OIDC authentication"`
 
+	// TLS
+	ServerTLSEnabled            bool   `long:"server-tls-enabled" env:"SERVER_TLS_ENABLED" description:"Enable TLS for the server"`
+	ServerTLSCertificateFile    string `long:"server-tls-certificate-file" env:"SERVER_TLS_CERTIFICATE_FILE" description:"TLS certificate file"`
+	ServerTLSCertificateKeyFile string `long:"server-tls-certificate-key-file" env:"SERVER_TLS_CERTIFICATE_KEY_FILE" description:"TLS certificate key file"`
+
 	// Server
 	ServerPort int `long:"port" env:"PORT" default:"2099" description:"Server proxy port"`
 
@@ -110,6 +115,22 @@ func NewConfiguration(args []string) (*Configuration, error) {
 	if c.OIDCPostAuthSQLTemplate != "" {
 		if _, err := os.Stat(c.OIDCPostAuthSQLTemplate); os.IsNotExist(err) {
 			return nil, fmt.Errorf("OIDC Post Auth SQL template file does not exist: %s", c.OIDCPostAuthSQLTemplate)
+		}
+	}
+
+	// Check TLS files
+	if c.ServerTLSEnabled {
+		if c.ServerTLSCertificateFile == "" {
+			return nil, fmt.Errorf("TLS certificate file is required")
+		}
+		if _, err := os.Stat(c.ServerTLSCertificateFile); os.IsNotExist(err) {
+			return nil, fmt.Errorf("TLS certificate file does not exist: %s", c.ServerTLSCertificateFile)
+		}
+		if c.ServerTLSCertificateKeyFile == "" {
+			return nil, fmt.Errorf("TLS certificate key file is required")
+		}
+		if _, err := os.Stat(c.ServerTLSCertificateKeyFile); os.IsNotExist(err) {
+			return nil, fmt.Errorf("TLS certificate key file does not exist: %s", c.ServerTLSCertificateKeyFile)
 		}
 	}
 
