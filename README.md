@@ -114,6 +114,8 @@ There is no requirement for the proxy certificate to be identical to the databas
 
 With double TLS, there is an overhead of double-TLS termination. What that means that the proxy has to first decrypt the client data with the server key, encrypt them with the database certificate and send them to the upstream database. And vice-versa when receiving database responses, decrypt them using the database's certificate, encrypt them using the server's private key and send them to the client. So there's a latency price to pay when using the proxy in the super-TLS mode, but that's the price for safety I guess.
 
+You can also use the server certificate and key to encrypt the API connections. So really go TLS all the way.
+
 You can find a detailed example of a single TLS connection at https://github.com/ryshoooo/food-me/tree/main/examples/postgres-keycloak-tls and a double TLS connection at https://github.com/ryshoooo/food-me/tree/main/examples/postgres-keycloak-double-tls.
 
 # Technical specification
