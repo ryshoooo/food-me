@@ -32,6 +32,10 @@ cd $DIR/../examples
 # Run each example
 for d in */ ; do
     cd $d
+    chmod -f 600 foodme.crt | :
+    chmod -f 600 foodme.key | :
+    chmod -f 600 server.crt | :
+    chmod -f 600 server.key | :
     echo "Running example $d"
     docker build -f Dockerfile -t foodme:e2e .
     docker compose up -d --build
