@@ -103,6 +103,19 @@ graph TD;
    Proxy --> Database
 ```
 
+Obvious but important, as there are 2 ways to handle TLS connections:
+
+1. The proxy connection to the database is encrypted and the client connection to the proxy is not
+2. Both connections (i.e. client->proxy and proxy->database) are encrypted
+
+If the database uses a TLS connection, the proxy can and will handle it just fine. However, if the proxy is not configured with a server certificate and key, the connection to the client will be unencrypted. This is generally frowned-upon, but without a certificate, what else can you do ¯\\\_(ツ)\_/¯.
+
+There is no requirement for the proxy certificate to be identical to the database certificate. Actually, it's very likely a bad idea as most certificate verifications would likely fail. Thus a separate certificate for the proxy which matches the true hosting server and DNS the proxy lives under is the way to go.
+
+With double TLS, there is an overhead of double-TLS termination. What that means that the proxy has to first decrypt the client data with the server key, encrypt them with the database certificate and send them to the upstream database. And vice-versa when receiving database responses, decrypt them using the database's certificate, encrypt them using the server's private key and send them to the client. So there's a latency price to pay when using the proxy in the super-TLS mode, but that's the price for safety I guess.
+
+You can find a detailed example of a single TLS connection at https://github.com/ryshoooo/food-me/tree/main/examples/postgres-keycloak-tls and a double TLS connection at https://github.com/ryshoooo/food-me/tree/main/examples/postgres-keycloak-double-tls.
+
 # Technical specification
 
 Jokes aside, let's get into some nitty-gritty boring nerd stuff.
