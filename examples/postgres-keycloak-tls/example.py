@@ -42,7 +42,7 @@ conn_str = (
     f"UID={user};"
     "SERVER=localhost;"
     "PORT=5432;"
-    "SSL=true;"
+    "SSLMode=prefer;"
 )
 cnxn = pyodbc.connect(conn_str)
 
