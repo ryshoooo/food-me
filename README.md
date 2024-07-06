@@ -24,6 +24,7 @@ Pretty neat and yummy. Right?
 
 - OIDC authentication and authorization
 - User impersonation in the session
+- Handles TLS connections and supports custom certificates
 - Most common drivers and databases (wishful thinking, needs work ¯\\\_(ツ)\_/¯)
 - OPA integration (wishful thinking, needs work ¯\\\_(ツ)\_/¯)
 
@@ -62,11 +63,15 @@ There are 2 methods to do this:
    dsn = f"host=localhost port=2099 user={username} database=test"
    ```
 
+The most basic example can be found at https://github.com/ryshoooo/food-me/tree/main/examples/postgres-keycloak.
+
 ### How do I configure the OIDC client?
 
 Simple really. This is just a configuration option in the proxy when you start it up. See the [full list of all configuration options](#configuration-options).
 
 However, there is an option to have multiple clients configured for a single database! Usually, a single database does not consist of a single database (sounds weird, but it's true). This is also why you specify the `database` field in your DSN, you are also specifying which database you want to connect to. Well, FOOD-Me allows you to define different OIDC clients for different databases. This way you can control who has access to which database in your OIDC provider instead!
+
+You can find a detailed example at https://github.com/ryshoooo/food-me/tree/main/examples/postgres-keycloak-multiclients.
 
 ### How do I assume a user session?
 
@@ -78,6 +83,8 @@ As mentioned above, it is also possible to assume a user (role) session with the
 
 With these values set, the proxy will try to retrieve the field from the UserInfo structure and attempt to perform a user/role impersonation. Thus if the connection is successful, the connection will look and feel as an authenticated user/role direct database connection.
 
+You can find a detailed example at https://github.com/ryshoooo/food-me/tree/main/examples/postgres-keycloak-assume-role.
+
 ### How do I not get bothered with user database administration?
 
 The assume user session is great if the user/role already exists in the database. If it does not, it just fails to execute. Maybe that's fine, failures exist for a reason. But, the flow has a requirement of managing users and roles in the database as a separate step. Would be nice not to handle that manually.
@@ -85,6 +92,16 @@ The assume user session is great if the user/role already exists in the database
 That's where the middleware offers you a post-auth script execution. In this case, you can specify `OIDC_POST_AUTH_SQL_TEMPLATE` to point to a file, which contains a [golang template](https://pkg.go.dev/text/template) of a SQL script, which is automatically executed after successful user authentication and before the assume user session directive. The template is parsed with the UserInfo context fetched from the OIDC UserInfo endpoint containing the specific authenticated user's data, thus you can parametrize the statements based on the attributes of the user from the OIDC provider.
 
 You can see a detailed example of how to use the post-auth SQL script to control whether a user is a superuser in the Postgres database via group memberships at https://github.com/ryshoooo/food-me/tree/main/examples/postgres-keycloak-postauth.
+
+### How can I handle SSL/TLS connections?
+
+Let's remember the common structure in place when using the proxy:
+
+```mermaid
+graph TD;
+   Client --> Proxy
+   Proxy --> Database
+```
 
 # Technical specification
 
