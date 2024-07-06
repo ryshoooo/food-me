@@ -6,6 +6,7 @@ function cleanup() {
     set +e
     docker stop $(docker ps -a -q)
     docker system prune -f
+    docker volume prune -f
     set -e
 }
 
@@ -36,6 +37,7 @@ for d in */ ; do
     docker compose up -d --build
     wait
     docker run --network host foodme:e2e
+    docker compose down
     cleanup
     cd ..
 done
