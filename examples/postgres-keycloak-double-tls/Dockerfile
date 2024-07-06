@@ -9,4 +9,4 @@ WORKDIR /example
 COPY . .
 RUN poetry install
 
-CMD sh -c 'poetry run python example.py odbc && poetry run python example.py nope'
+CMD sh -c 'echo "127.0.0.1       foodme" >> /etc/hosts && poetry run python example.py odbc && poetry run python example.py nope'

@@ -9,4 +9,4 @@ WORKDIR /example
 COPY . .
 RUN poetry install
 
-CMD poetry run python example.py
+CMD sh -c 'poetry run python example.py odbc && poetry run python example.py nope'

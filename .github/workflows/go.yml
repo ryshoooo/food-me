@@ -57,6 +57,14 @@ jobs:
         name: code-coverage
         path: coverage.txt
   
+  # e2e:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - uses: actions/checkout@v4
+  #   - uses: docker-practice/actions-setup-docker@master
+  #   - name: Run E2E
+  #     run: bash e2e/run_e2e_tests.sh
+  
   code_coverage:
     name: "Code coverage report"
     if: github.event_name == 'pull_request' # Do not run when workflow is triggered by push to main branch

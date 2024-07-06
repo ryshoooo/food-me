@@ -25,11 +25,16 @@ func Cleaner(logger *logrus.Logger, period int) {
 	}()
 }
 
-func Start(logger *logrus.Logger, port, usernameLifetime, gcPeriod int) {
+func Start(logger *logrus.Logger, port, usernameLifetime, gcPeriod int, withTls bool, certFile, keyFile string) {
 	logger.WithFields(logrus.Fields{"component": "api"}).Infof("Starting the API")
 
 	go Cleaner(logger, gcPeriod)
 	server := http.NewServeMux()
 	server.HandleFunc("POST /connection", CreateNewConnection(logger, usernameLifetime))
-	logger.Fatal(http.ListenAndServe(fmt.Sprintf(":%v", port), server))
+	if withTls {
+		logger.Fatal(http.ListenAndServeTLS(fmt.Sprintf(":%v", port), certFile, keyFile, server))
+	} else {
+		logger.Fatal(http.ListenAndServe(fmt.Sprintf(":%v", port), server))
+	}
+
 }
