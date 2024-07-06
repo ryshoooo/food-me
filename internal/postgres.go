@@ -170,15 +170,20 @@ func (h *PostgresHandler) startup() ([]byte, error) {
 				return []byte{}, err
 			}
 		} else {
-			h.Logger.Debug("Upgrading downstream connection with configured certificate")
+			h.Logger.Debug("Upgrading downstream connection with TLS handler")
+			cert, err := tls.LoadX509KeyPair(h.TLSCertificateFile, h.TLSCertificateKeyFile)
+			if err != nil {
+				return []byte{}, err
+			}
+			err = h.write(resp, "client")
+			if err != nil {
+				return []byte{}, err
+			}
+			h.client = tls.Server(h.client, &tls.Config{InsecureSkipVerify: true, Certificates: []tls.Certificate{cert}})
 			return []byte{}, fmt.Errorf("Server TLS not implemented yet")
-			// tls.LoadX509KeyPair("cert.pem", "key.pem")
-			// h.client = tls.Server(h.client, &tls.Config{InsecureSkipVerify: true, Certificates: []tls.Certificate{{}}})
-			// err = h.write(resp, "client")
-			// if err != nil {
-			// 	return []byte{}, err
-			// }
+
 		}
+		h.Logger.Debug("Upgrading upstream connection with TLS handler")
 		h.upstream = tls.Client(h.upstream, &tls.Config{InsecureSkipVerify: true})
 	} else {
 		err = h.write(resp, "client")
