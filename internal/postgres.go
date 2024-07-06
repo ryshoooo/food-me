@@ -180,8 +180,6 @@ func (h *PostgresHandler) startup() ([]byte, error) {
 				return []byte{}, err
 			}
 			h.client = tls.Server(h.client, &tls.Config{InsecureSkipVerify: true, Certificates: []tls.Certificate{cert}})
-			return []byte{}, fmt.Errorf("Server TLS not implemented yet")
-
 		}
 		h.Logger.Debug("Upgrading upstream connection with TLS handler")
 		h.upstream = tls.Client(h.upstream, &tls.Config{InsecureSkipVerify: true})
