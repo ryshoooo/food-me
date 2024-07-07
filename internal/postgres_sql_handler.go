@@ -61,7 +61,7 @@ func HandleTables(ctx interface{}, node interface{}) (stop bool) {
 					h.Logger.Errorf("failed to get filters for table %s: %v", tb.TableName, err)
 					h.handleFailed = true
 					h.handleError = fmt.Errorf("failed to get filters for table %s: %v", tb.TableName, err)
-					return false
+					return true
 				}
 
 				where := strings.Join(filters, " AND ")
@@ -70,7 +70,7 @@ func HandleTables(ctx interface{}, node interface{}) (stop bool) {
 					h.Logger.Errorf("failed to parse where statement for table %s: %v", tb.TableName, err)
 					h.handleFailed = true
 					h.handleError = fmt.Errorf("failed to parse where statement for table %s: %v", tb.TableName, err)
-					return false
+					return true
 				}
 
 				whereStatement := swwStmt[0].AST.(*tree.Select).Select.(*tree.SelectClause).Where
