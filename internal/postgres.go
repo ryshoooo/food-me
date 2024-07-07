@@ -11,9 +11,6 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/auxten/postgresql-parser/pkg/sql/parser"
-	"github.com/auxten/postgresql-parser/pkg/sql/sem/tree"
-	"github.com/auxten/postgresql-parser/pkg/walk"
 	"github.com/sirupsen/logrus"
 	"github.com/xdg-go/scram"
 )
@@ -870,31 +867,6 @@ func (h *PostgresHandler) proxyUpstream() {
 			continue
 		}
 
-		parsedStmt, err := parser.Parse(stmt)
-		if err != nil {
-			h.Logger.Errorf("Error parsing SQL statement: %v", err)
-			err = h.write(append(op, append(size, data...)...), "upstream")
-			if err != nil {
-				h.Logger.Errorf("Error writing to upstream: %v", err)
-				break
-			}
-			continue
-		}
-
-		w := &walk.AstWalker{
-			Fn: func(ctx interface{}, node interface{}) (stop bool) {
-				switch node := node.(type) {
-				case *tree.SelectClause:
-					h.Logger.Debugf("Select clause: %v", node)
-					h.Logger.Debugf("Select clause FROM: %v", node.From.Tables)
-					h.Logger.Debugf("Select clause WHERE: %v", node.Where)
-				}
-				return false
-			},
-		}
-
-		_, _ = w.Walk(parsedStmt, nil)
-		h.Logger.Debugf("Parsed SQL statement: %s", parsedStmt.String())
 		err = h.write(append(op, append(size, data...)...), "upstream")
 		if err != nil {
 			h.Logger.Errorf("Error writing to upstream: %v", err)
