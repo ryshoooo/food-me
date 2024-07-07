@@ -21,3 +21,11 @@ type IHandler interface {
 type IUpstreamHandler interface {
 	Connect() (net.Conn, error)
 }
+
+type ISQLHandler interface {
+	Handle(sql string) (string, error)
+}
+
+type IPermissionAgent interface {
+	GetFilters(tableName string, tableAlias string) ([]string, error)
+}
