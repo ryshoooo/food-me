@@ -1,5 +1,7 @@
 # FOOD-Me
 
+![image.png](assets/image.png)
+
 _**F**inally a <ins>G**OO**D</ins> **D**atabase **M**iddlewar**e**_
 
 Nom nom nom :P
