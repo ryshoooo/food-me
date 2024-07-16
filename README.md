@@ -1,6 +1,6 @@
 # FOOD-Me
 
-<img src="assets/image.png" alt="logo.png" style="width:200px; display:flex;"/>
+<img src="assets/image.png" alt="logo.png" style="width:200px"/>
 
 _**F**inally a <ins>G**OO**D</ins> **D**atabase **M**iddlewar**e**_
 
