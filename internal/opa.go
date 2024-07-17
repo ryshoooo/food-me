@@ -78,16 +78,12 @@ func (c *CompileResponseQuery) Compile(stringEscapeChart, tableName, tableAlias 
 	for idx, term := range c.Terms {
 		ct, err := term.Compile(stringEscapeChart, tableName, tableAlias)
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("failed to compile query: %w", err)
 		}
 		ra[idx] = ct
 	}
 
-	err := setIndicesForCompiledTerms(ra)
-	if err != nil {
-		return "", err
-	}
-
+	_ = setIndicesForCompiledTerms(ra)
 	result := make([]string, 3)
 	for _, compiledTerm := range ra {
 		if result[compiledTerm.Index] != "" {

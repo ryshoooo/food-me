@@ -213,3 +213,47 @@ func TestCompileResponseTermEdges(t *testing.T) {
 	_, err = term.Compile("", "", "")
 	assert.Error(t, err, "unexpected type for term: unknown (value: blah)")
 }
+
+func TestCompileResponseQuery(t *testing.T) {
+	rq := CompileResponseQuery{Index: 0, Negated: false, Terms: []CompileResponseTerm{
+		{Type: "boolean", Value: true},
+		{Type: "ref", Value: []interface{}{map[string]interface{}{"type": "var", "value": "eq"}}},
+		{Type: "ref", Value: []interface{}{
+			map[string]interface{}{"type": "var", "value": "data"},
+			map[string]interface{}{"type": "string", "value": "tables"},
+			map[string]interface{}{"type": "string", "value": "tablename"},
+			map[string]interface{}{"type": "string", "value": "columnname"},
+		}},
+	}}
+
+	result, err := rq.Compile("'", "tablename", "")
+	assert.NilError(t, err)
+	assert.Equal(t, result, "tablename.columnname = true")
+
+	result, err = rq.Compile("'", "tablename", "t")
+	assert.NilError(t, err)
+	assert.Equal(t, result, "t.columnname = true")
+
+	rq.Negated = true
+	result, err = rq.Compile("'", "tablename", "t")
+	assert.NilError(t, err)
+	assert.Equal(t, result, "NOT (t.columnname = true)")
+}
+
+func TestCompileResponseQueryEdgeCases(t *testing.T) {
+	rq := CompileResponseQuery{Index: 0, Negated: false, Terms: []CompileResponseTerm{}}
+	_, err := rq.Compile("", "", "")
+	assert.Error(t, err, "unexpected number of terms in query: 0")
+
+	rq = CompileResponseQuery{Index: 0, Negated: false, Terms: []CompileResponseTerm{{Type: "blah", Value: "bleh"}, {Type: "blah", Value: "bleh"}, {Type: "blah", Value: "bleh"}}}
+	_, err = rq.Compile("", "", "")
+	assert.Error(t, err, "failed to compile query: unexpected type for term: blah (value: bleh)")
+
+	rq = CompileResponseQuery{Index: 0, Negated: false, Terms: []CompileResponseTerm{
+		{Type: "boolean", Value: true},
+		{Type: "ref", Value: []interface{}{map[string]interface{}{"type": "var", "value": "eq"}}},
+		{Type: "boolean", Value: true},
+	}}
+	_, err = rq.Compile("", "", "")
+	assert.Error(t, err, "index already used: 2 (value true)")
+}
