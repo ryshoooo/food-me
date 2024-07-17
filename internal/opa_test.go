@@ -2,6 +2,9 @@ package foodme
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
 	"testing"
 
 	"gotest.tools/v3/assert"
@@ -323,4 +326,92 @@ func TestOPASQLBuildPayloadFailures(t *testing.T) {
 	opa := NewOPASQL("opa-server", "data.{{ eq .TableName }}.allow == true", "'", map[string]interface{}{"preferred_username": "test"}, nil)
 	_, err := opa.BuildPayload("tablename")
 	assert.Error(t, err, "failed to execute query template: template: query:1:8: executing \"query\" at <eq .TableName>: error calling eq: missing argument for comparison")
+}
+
+type MockOPAHTTPClient struct {
+	DoSucceed    bool
+	Response     string
+	FailBodyRead bool
+	StatusCode   int
+	RequestBody  string
+}
+
+func (m *MockOPAHTTPClient) Do(req *http.Request) (*http.Response, error) {
+	if !m.DoSucceed {
+		return nil, fmt.Errorf("failed to do request")
+	}
+
+	if req.Body == nil {
+		m.RequestBody = ""
+	} else {
+		b, err := io.ReadAll(req.Body)
+		if err != nil {
+			return nil, err
+		}
+		m.RequestBody = string(b)
+	}
+
+	resp := &http.Response{Body: &MockBody{Body: m.Response, FailRead: m.FailBodyRead}, StatusCode: m.StatusCode}
+	return resp, nil
+}
+
+func TestOPASQLQueryOK(t *testing.T) {
+	opaHttpClient := &MockOPAHTTPClient{DoSucceed: true, Response: `{"result": {"queries": [[]]}}`, StatusCode: 200}
+	opa := NewOPASQL("opa-server", "data.{{ .TableName }}.allow == true", "'", map[string]interface{}{"preferred_username": "test"}, opaHttpClient)
+	payload, err := opa.BuildPayload("tablename")
+	assert.NilError(t, err)
+	resp, err := opa.Query(payload)
+	assert.NilError(t, err)
+	assert.DeepEqual(t, resp, &CompileResponse{Result: CompileResponseResult{Queries: [][]CompileResponseQuery{{}}}})
+}
+
+func TestOPASQLQueryFailures(t *testing.T) {
+	opaHttpClient := &MockOPAHTTPClient{}
+
+	// Bad payload
+	opa := NewOPASQL("opa-server", "data.{{ .TableName }}.allow == true", "'", map[string]interface{}{"preferred_username": map[interface{}]bool{nil: false}}, opaHttpClient)
+	payload, err := opa.BuildPayload("tablename")
+	assert.NilError(t, err)
+	_, err = opa.Query(payload)
+	assert.Error(t, err, "failed to marshal json payload: json: unsupported type: map[interface {}]bool")
+
+	// Bad address
+	opa.UserInfo = map[string]interface{}{"preferred_username": "user"}
+	opa.Address = "bad://bad url"
+	payload, err = opa.BuildPayload("tablename")
+	assert.NilError(t, err)
+	_, err = opa.Query(payload)
+	assert.Error(t, err, "failed to create request: parse \"bad://bad url/v1/compile\": invalid character \" \" in host name")
+
+	// Bad request
+	opa.Address = "http://opa-server"
+	opaHttpClient.DoSucceed = false
+	payload, err = opa.BuildPayload("tablename")
+	assert.NilError(t, err)
+	_, err = opa.Query(payload)
+	assert.Error(t, err, "failed to execute request: failed to do request")
+
+	// Bad response code
+	opaHttpClient.DoSucceed = true
+	opaHttpClient.StatusCode = 500
+	payload, err = opa.BuildPayload("tablename")
+	assert.NilError(t, err)
+	_, err = opa.Query(payload)
+	assert.Error(t, err, "unexpected status code from OPA: 500")
+
+	// Fail body read
+	opaHttpClient.StatusCode = 200
+	opaHttpClient.FailBodyRead = true
+	payload, err = opa.BuildPayload("tablename")
+	assert.NilError(t, err)
+	_, err = opa.Query(payload)
+	assert.Error(t, err, "failed to read response body: body read failure")
+
+	// Fail unmarshal
+	opaHttpClient.FailBodyRead = false
+	opaHttpClient.Response = "bad response"
+	payload, err = opa.BuildPayload("tablename")
+	assert.NilError(t, err)
+	_, err = opa.Query(payload)
+	assert.Error(t, err, "failed to unmarshal response body: invalid character 'b' looking for beginning of value")
 }

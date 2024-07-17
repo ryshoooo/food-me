@@ -249,17 +249,17 @@ func NewOPASQL(
 func (o *OPASQL) Query(payload *CompilePayload) (*CompileResponse, error) {
 	body, err := json.Marshal(payload)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to marshal json payload: %w", err)
 	}
 
 	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/v1/compile", o.Address), bytes.NewBuffer(body))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	resp, err := o.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to execute request: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -269,13 +269,13 @@ func (o *OPASQL) Query(payload *CompilePayload) (*CompileResponse, error) {
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
 	compileResp := &CompileResponse{}
 	err = json.Unmarshal(respBody, compileResp)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal response body: %w", err)
 	}
 
 	return compileResp, nil
