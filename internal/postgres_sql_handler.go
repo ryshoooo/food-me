@@ -2,7 +2,6 @@ package foodme
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/auxten/postgresql-parser/pkg/sql/parser"
 	"github.com/auxten/postgresql-parser/pkg/sql/sem/tree"
@@ -64,8 +63,11 @@ func HandleTables(ctx interface{}, node interface{}) (stop bool) {
 					return true
 				}
 
-				where := strings.Join(filters, " AND ")
-				swwStmt, err := parser.Parse(fmt.Sprintf("select * from %s where %s", tb.TableName, where))
+				if filters == "" {
+					continue
+				}
+
+				swwStmt, err := parser.Parse(fmt.Sprintf("select * from %s where %s", tb.TableName, filters))
 				if err != nil {
 					h.Logger.Errorf("failed to parse where statement for table %s: %v", tb.TableName, err)
 					h.handleFailed = true

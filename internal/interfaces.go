@@ -27,5 +27,5 @@ type ISQLHandler interface {
 }
 
 type IPermissionAgent interface {
-	GetFilters(tableName string, tableAlias string) ([]string, error)
+	GetFilters(tableName, tableAlias string) (string, error)
 }

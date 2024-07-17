@@ -2,6 +2,7 @@ package foodme
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/auxten/postgresql-parser/pkg/sql/sem/tree"
@@ -21,7 +22,7 @@ type DummyAgent struct {
 	Filters []ColFilter
 }
 
-func (d *DummyAgent) GetFilters(tableName string, tableAlias string) ([]string, error) {
+func (d *DummyAgent) GetFilters(tableName string, tableAlias string) (string, error) {
 	res := []string{}
 	for _, filter := range d.Filters {
 		if tableAlias != "" {
@@ -30,15 +31,15 @@ func (d *DummyAgent) GetFilters(tableName string, tableAlias string) ([]string, 
 			res = append(res, fmt.Sprintf("%s %s %s", filter.ColumnName, filter.Operator, filter.ColumnValue))
 		}
 	}
-	return res, nil
+	return strings.Join(res, " AND "), nil
 }
 
-func (a *FailingAgent) GetFilters(tableName string, tableAlias string) ([]string, error) {
-	return nil, fmt.Errorf("no filters")
+func (a *FailingAgent) GetFilters(tableName string, tableAlias string) (string, error) {
+	return "", fmt.Errorf("no filters")
 }
 
-func (a *BadFiltersAgent) GetFilters(tableName string, tableAlias string) ([]string, error) {
-	return []string{"select * from abhram"}, nil
+func (a *BadFiltersAgent) GetFilters(tableName string, tableAlias string) (string, error) {
+	return "select * from abhram", nil
 }
 
 func TestHandleSQLWithoutAgent(t *testing.T) {
