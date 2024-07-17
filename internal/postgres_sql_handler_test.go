@@ -96,6 +96,16 @@ func TestHandleSimpleSQL(t *testing.T) {
 	assert.Equal(t, res, "SELECT * FROM tablename WHERE (age >= 18) AND (affiliation != 'royalty')")
 }
 
+func TestHandleAllowSQL(t *testing.T) {
+	log := logrus.StandardLogger()
+	sql := "SELECT * FROM tablename"
+	agent := &DummyAgent{Filters: []ColFilter{}}
+	handler := NewPostgresSQLHandler(log, agent)
+	res, err := handler.Handle(sql)
+	assert.NilError(t, err)
+	assert.Equal(t, res, sql)
+}
+
 func TestHandleAdvancedSQL(t *testing.T) {
 	log := logrus.StandardLogger()
 	agent := &DummyAgent{

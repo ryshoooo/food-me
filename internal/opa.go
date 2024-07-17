@@ -297,12 +297,12 @@ func (o *OPASQL) BuildPayload(tableName string) (*CompilePayload, error) {
 func (o *OPASQL) GetFilters(tableName, tableAlias string) (string, error) {
 	payload, err := o.BuildPayload(tableName)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to build payload: %w", err)
 	}
 
 	resp, err := o.Query(payload)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to query OPA: %w", err)
 	}
 
 	if resp.IsAllowed() {
