@@ -48,7 +48,7 @@ func (c *CompileResponse) Compile(stringEscapeChar, tableName, tableAlias string
 		for qqidx, iq := range query {
 			cnd, err := iq.Compile(stringEscapeChar, tableName, tableAlias)
 			if err != nil {
-				return "", err
+				return "", fmt.Errorf("failed to compile response: %w", err)
 			}
 			iresp[qqidx] = fmt.Sprintf("(%s)", cnd)
 		}

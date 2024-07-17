@@ -257,3 +257,53 @@ func TestCompileResponseQueryEdgeCases(t *testing.T) {
 	_, err = rq.Compile("", "", "")
 	assert.Error(t, err, "index already used: 2 (value true)")
 }
+
+func TestCompileResponse(t *testing.T) {
+	cr := CompileResponse{Result: CompileResponseResult{Queries: [][]CompileResponseQuery{
+		{
+			{Index: 0, Negated: false, Terms: []CompileResponseTerm{
+				{Type: "string", Value: "val1"},
+				{Type: "ref", Value: []interface{}{map[string]interface{}{"type": "var", "value": "eq"}}},
+				{Type: "ref", Value: []interface{}{
+					map[string]interface{}{"type": "var", "value": "data"},
+					map[string]interface{}{"type": "string", "value": "tables"},
+					map[string]interface{}{"type": "string", "value": "tablename"},
+					map[string]interface{}{"type": "string", "value": "columnname1"},
+				}},
+			}},
+			{Index: 1, Negated: true, Terms: []CompileResponseTerm{
+				{Type: "string", Value: "val2"},
+				{Type: "ref", Value: []interface{}{map[string]interface{}{"type": "var", "value": "eq"}}},
+				{Type: "ref", Value: []interface{}{
+					map[string]interface{}{"type": "var", "value": "data"},
+					map[string]interface{}{"type": "string", "value": "tables"},
+					map[string]interface{}{"type": "string", "value": "tablename"},
+					map[string]interface{}{"type": "string", "value": "columnname2"},
+				}},
+			}},
+		},
+		{
+			{Index: 0, Negated: false, Terms: []CompileResponseTerm{
+				{Type: "number", Value: 12},
+				{Type: "ref", Value: []interface{}{map[string]interface{}{"type": "var", "value": "gte"}}},
+				{Type: "ref", Value: []interface{}{
+					map[string]interface{}{"type": "var", "value": "data"},
+					map[string]interface{}{"type": "string", "value": "tables"},
+					map[string]interface{}{"type": "string", "value": "tablename"},
+					map[string]interface{}{"type": "string", "value": "columnname3"},
+				}},
+			}},
+		},
+	}}}
+	res, err := cr.Compile("'", "tablename", "t")
+	assert.NilError(t, err)
+	assert.Equal(t, res, "((t.columnname1 = 'val1') AND (NOT (t.columnname2 = 'val2'))) OR ((t.columnname3 >= 12))")
+}
+
+func TestCompileResponseEdge(t *testing.T) {
+	cr := CompileResponse{Result: CompileResponseResult{Queries: [][]CompileResponseQuery{
+		{{Index: 0, Negated: false, Terms: []CompileResponseTerm{{Type: "string", Value: "val1"}}}},
+	}}}
+	_, err := cr.Compile("", "", "")
+	assert.Error(t, err, "failed to compile response: unexpected number of terms in query: 1")
+}
