@@ -433,8 +433,7 @@ func (h *PostgresHandler) auth() error {
 	case 5:
 		h.Logger.Info("MD5 password auth method")
 		return h.handleMD5PasswordAuth(string(rs[3][1:]))
-	case 7:
-	case 8:
+	case 7, 8:
 		h.Logger.Info("GSSAPI auth method")
 		return fmt.Errorf("GSSAPI auth method not supported")
 	case 10:
@@ -443,8 +442,6 @@ func (h *PostgresHandler) auth() error {
 	default:
 		return fmt.Errorf("unknown auth method: %v", method)
 	}
-
-	return nil
 }
 
 func (h *PostgresHandler) readMessage(expR byte) ([]byte, error) {
