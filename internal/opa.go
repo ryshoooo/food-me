@@ -284,16 +284,11 @@ func (o *OPASQL) Query(payload *CompilePayload) (*CompileResponse, error) {
 func (o *OPASQL) BuildPayload(tableName string) (*CompilePayload, error) {
 	ctx := &TemplateContext{TableName: tableName}
 
-	// Query template
-	qtmpl, err := template.New("query").Parse(o.QueryTemplate)
-	if err != nil {
-		return nil, err
-	}
-
+	qtmpl, _ := template.New("query").Parse(o.QueryTemplate)
 	var qrs bytes.Buffer
-	err = qtmpl.Execute(&qrs, ctx)
+	err := qtmpl.Execute(&qrs, ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to execute query template: %w", err)
 	}
 
 	return &CompilePayload{Query: qrs.String(), Unknowns: []string{"data.tables"}, Input: CompilePayloadInput{UserInfo: o.UserInfo}}, nil

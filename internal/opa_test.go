@@ -307,3 +307,20 @@ func TestCompileResponseEdge(t *testing.T) {
 	_, err := cr.Compile("", "", "")
 	assert.Error(t, err, "failed to compile response: unexpected number of terms in query: 1")
 }
+
+func TestOPASQLBuildPayload(t *testing.T) {
+	opa := NewOPASQL("opa-server", "data.{{ .TableName }}.allow == true", "'", map[string]interface{}{"preferred_username": "test"}, nil)
+	payload, err := opa.BuildPayload("tablename")
+	assert.NilError(t, err)
+	assert.DeepEqual(t, payload, &CompilePayload{
+		Query:    "data.tablename.allow == true",
+		Unknowns: []string{"data.tables"},
+		Input:    CompilePayloadInput{UserInfo: map[string]interface{}{"preferred_username": "test"}},
+	})
+}
+
+func TestOPASQLBuildPayloadFailures(t *testing.T) {
+	opa := NewOPASQL("opa-server", "data.{{ eq .TableName }}.allow == true", "'", map[string]interface{}{"preferred_username": "test"}, nil)
+	_, err := opa.BuildPayload("tablename")
+	assert.Error(t, err, "failed to execute query template: template: query:1:8: executing \"query\" at <eq .TableName>: error calling eq: missing argument for comparison")
+}
