@@ -33,6 +33,7 @@ type PostgresHandler struct {
 	OIDCDatabaseFallBackToBaseClient bool
 	OIDCDatabaseClients              map[string]*OIDCDatabaseClientSpec
 	OIDCPostAuthSQLTemplate          string
+	SQLHandler                       ISQLHandler
 	TLSEnabled                       bool
 	TLSCertificateFile               string
 	TLSCertificateKeyFile            string
@@ -58,6 +59,7 @@ func NewPostgresHandler(
 	oidcBaseClientFallback bool,
 	oidcDatabaseClients map[string]*OIDCDatabaseClientSpec,
 	oidcPostAuthTemplate string,
+	sqlHandler ISQLHandler,
 	tlsEnabled bool, tlsCertificateFile, tlsCertificateKeyFile string,
 	assumeUserSession bool, usernameClaim string, allowSessionEscape bool,
 ) *PostgresHandler {
@@ -78,6 +80,7 @@ func NewPostgresHandler(
 		OIDCDatabaseFallBackToBaseClient: oidcBaseClientFallback,
 		OIDCDatabaseClients:              oidcDatabaseClients,
 		OIDCPostAuthSQLTemplate:          oidcPostAuthTemplate,
+		SQLHandler:                       sqlHandler,
 		TLSEnabled:                       tlsEnabled,
 		TLSCertificateFile:               tlsCertificateFile,
 		TLSCertificateKeyFile:            tlsCertificateKeyFile,
@@ -808,9 +811,26 @@ func (h *PostgresHandler) proxyDownstream() {
 	}
 }
 
-func (h *PostgresHandler) proxyUpstream() {
+func (h *PostgresHandler) handleError(err error, code, message string) error {
 	readyMessage := []byte{90, 0, 0, 0, 5, 69}
+	h.Logger.Errorf("%s: %v", message, err)
 
+	err = h.sendErrorMessage(code, fmt.Errorf("%s: %v", message, err))
+	if err != nil {
+		h.Logger.Errorf("Error sending error message to client: %v", err)
+		return fmt.Errorf("error sending message to client: %v", err)
+	}
+
+	err = h.write(readyMessage, "client")
+	if err != nil {
+		h.Logger.Errorf("Error writing to client: %v", err)
+		return fmt.Errorf("error writing to client: %v", err)
+	}
+
+	return nil
+}
+
+func (h *PostgresHandler) proxyUpstream() {
 	for {
 		op, size, data, err := h.readFullMessage("client")
 
@@ -833,15 +853,8 @@ func (h *PostgresHandler) proxyUpstream() {
 			h.Logger.Debug("Access token is invalid, refreshing the token")
 			err = h.oidcClient.RefreshAccessToken()
 			if err != nil {
-				h.Logger.Errorf("Error refreshing access token: %v", err)
-				err = h.sendErrorMessage("28000", fmt.Errorf("error refreshing access token: %v", err))
+				err = h.handleError(err, "28000", "error refreshing access token")
 				if err != nil {
-					h.Logger.Errorf("Error sending error message to client: %v", err)
-					break
-				}
-				err = h.write(readyMessage, "client")
-				if err != nil {
-					h.Logger.Errorf("Error writing to client: %v", err)
 					break
 				}
 				continue
@@ -851,17 +864,27 @@ func (h *PostgresHandler) proxyUpstream() {
 		stmt := string(data[:len(data)-1])
 		if isEscapeSession(stmt) && !h.AllowSessionEscape {
 			h.Logger.Info("Session escape detected, ignoring the request")
-			err = h.sendErrorMessage("28000", fmt.Errorf("session escape detected"))
+			err = h.handleError(fmt.Errorf("session escape detected"), "28000", "unallowed session escape")
 			if err != nil {
-				h.Logger.Errorf("Error sending error message to client: %v", err)
-				break
-			}
-			err = h.write(readyMessage, "client")
-			if err != nil {
-				h.Logger.Errorf("Error writing to client: %v", err)
 				break
 			}
 			continue
+		}
+
+		if h.SQLHandler != nil {
+			h.Logger.Debugf("Using SQL handler for statement: %s", stmt)
+			newStmt, err := h.SQLHandler.Handle(stmt)
+			if err != nil {
+				err = h.handleError(err, "28000", "error while handling SQL statement")
+				if err != nil {
+					break
+				}
+				continue
+			}
+			h.Logger.Debugf("Modified statement received from SQL handler: %s", newStmt)
+
+			data = append([]byte(data), 0)
+			size = createPacketSize(len(data) + 4)
 		}
 
 		err = h.write(append(op, append(size, data...)...), "upstream")
