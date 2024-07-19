@@ -227,20 +227,17 @@ type TemplateContext struct {
 type OPASQL struct {
 	Address          string
 	QueryTemplate    string
-	UserInfo         map[string]interface{}
 	StringEscapeChar string
 	httpClient       IHttpClient
 }
 
 func NewOPASQL(
 	address, queryTemplate, stringEscapeChar string,
-	userInfo map[string]interface{},
 	httpClient IHttpClient,
 ) *OPASQL {
 	return &OPASQL{
 		Address:          address,
 		QueryTemplate:    queryTemplate,
-		UserInfo:         userInfo,
 		httpClient:       httpClient,
 		StringEscapeChar: stringEscapeChar,
 	}
@@ -281,7 +278,7 @@ func (o *OPASQL) Query(payload *CompilePayload) (*CompileResponse, error) {
 	return compileResp, nil
 }
 
-func (o *OPASQL) BuildPayload(tableName string) (*CompilePayload, error) {
+func (o *OPASQL) BuildPayload(tableName string, userInfo map[string]interface{}) (*CompilePayload, error) {
 	ctx := &TemplateContext{TableName: tableName}
 
 	qtmpl, _ := template.New("query").Parse(o.QueryTemplate)
@@ -291,11 +288,11 @@ func (o *OPASQL) BuildPayload(tableName string) (*CompilePayload, error) {
 		return nil, fmt.Errorf("failed to execute query template: %w", err)
 	}
 
-	return &CompilePayload{Query: qrs.String(), Unknowns: []string{"data.tables"}, Input: CompilePayloadInput{UserInfo: o.UserInfo}}, nil
+	return &CompilePayload{Query: qrs.String(), Unknowns: []string{"data.tables"}, Input: CompilePayloadInput{UserInfo: userInfo}}, nil
 }
 
-func (o *OPASQL) GetFilters(tableName, tableAlias string) (string, error) {
-	payload, err := o.BuildPayload(tableName)
+func (o *OPASQL) GetFilters(tableName, tableAlias string, userInfo map[string]interface{}) (string, error) {
+	payload, err := o.BuildPayload(tableName, userInfo)
 	if err != nil {
 		return "", fmt.Errorf("failed to build payload: %w", err)
 	}

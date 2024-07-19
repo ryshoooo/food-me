@@ -873,7 +873,7 @@ func (h *PostgresHandler) proxyUpstream() {
 
 		if h.SQLHandler != nil {
 			h.Logger.Debugf("Using SQL handler for statement: %s", stmt)
-			newStmt, err := h.SQLHandler.Handle(stmt)
+			newStmt, err := h.SQLHandler.Handle(stmt, h.userinfo)
 			if err != nil {
 				err = h.handleError(err, "28000", "error while handling SQL statement")
 				if err != nil {
