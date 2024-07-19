@@ -25,16 +25,18 @@ func Cleaner(logger *logrus.Logger, period int) {
 	}()
 }
 
-func Start(logger *logrus.Logger, port, usernameLifetime, gcPeriod int, withTls bool, certFile, keyFile string) {
+func Start(logger *logrus.Logger, conf *foodme.Configuration) {
 	logger.WithFields(logrus.Fields{"component": "api"}).Infof("Starting the API")
 
-	go Cleaner(logger, gcPeriod)
+	go Cleaner(logger, conf.ApiGarbageCollectionPeriod)
 	server := http.NewServeMux()
-	server.HandleFunc("POST /connection", CreateNewConnection(logger, usernameLifetime))
-	if withTls {
-		logger.Fatal(http.ListenAndServeTLS(fmt.Sprintf(":%v", port), certFile, keyFile, server))
+	httpClient := &http.Client{}
+	server.HandleFunc("POST /connection", CreateNewConnection(logger, conf.ApiUsernameLifetime))
+	server.HandleFunc("POST /permissionapply", ApplyPermissionAgent(logger, conf, httpClient))
+	if conf.APITLSEnabled {
+		logger.Fatal(http.ListenAndServeTLS(fmt.Sprintf(":%v", conf.ApiPort), conf.ServerTLSCertificateFile, conf.ServerTLSCertificateKeyFile, server))
 	} else {
-		logger.Fatal(http.ListenAndServe(fmt.Sprintf(":%v", port), server))
+		logger.Fatal(http.ListenAndServe(fmt.Sprintf(":%v", conf.ApiPort), server))
 	}
 
 }

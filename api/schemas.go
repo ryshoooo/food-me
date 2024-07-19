@@ -12,3 +12,14 @@ type NewConnectionData struct {
 type NewConnectionResponse struct {
 	Username string `json:"username"`
 }
+
+type PermissionData struct {
+	Username string `json:"username"`
+	Database string `json:"database"`
+	SQL      string `json:"sql"`
+}
+
+type PermissionApplyResponse struct {
+	SQL    string `json:"sql"`
+	NewSQL string `json:"new_sql"`
+}
