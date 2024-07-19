@@ -47,7 +47,7 @@ type Configuration struct {
 
 	// Permission Agents
 	PermissionAgentEnabled bool   `long:"permission-agent-enabled" env:"PERMISSION_AGENT_ENABLED" description:"Enable permission agent for handling SQL queries"`
-	PermissionAgentType    string `long:"permission-agent-type" env:"PERMISSION_AGENT_TYPE" default:"opa" choice:"opa" description:"Permission agent type"`
+	PermissionAgentType    string `long:"permission-agent-type" env:"PERMISSION_AGENT_TYPE" choice:"opa" description:"Permission agent type"`
 
 	// OPA Permission Agent Configuration
 	PermissionAgentOPAURL                   string `long:"permission-agent-opa-url" env:"PERMISSION_AGENT_OPA_URL" description:"URL endpoint for OPA server"`
