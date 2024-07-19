@@ -257,7 +257,8 @@ func TestApplyPermissionAgent(t *testing.T) {
 	handler(w, r)
 	assert.DeepEqual(t, w.headers.headers, []int{200})
 	respData := map[string]interface{}{}
-	json.Unmarshal(w.buffer.buffer, &respData)
+	err = json.Unmarshal(w.buffer.buffer, &respData)
+	assert.NilError(t, err)
 	assert.DeepEqual(t, respData, map[string]interface{}{"sql": "select * from pets", "new_sql": "SELECT * FROM pets WHERE ((pets.owners >= 23))"})
 
 	// OK with alias
@@ -276,6 +277,7 @@ func TestApplyPermissionAgent(t *testing.T) {
 	handler(w, r)
 	assert.DeepEqual(t, w.headers.headers, []int{200})
 	respData = map[string]interface{}{}
-	json.Unmarshal(w.buffer.buffer, &respData)
+	err = json.Unmarshal(w.buffer.buffer, &respData)
+	assert.NilError(t, err)
 	assert.DeepEqual(t, respData, map[string]interface{}{"sql": "select * from pets p", "new_sql": "SELECT * FROM pets AS p WHERE ((p.owners >= 23))"})
 }
