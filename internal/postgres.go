@@ -883,7 +883,7 @@ func (h *PostgresHandler) proxyUpstream() {
 			}
 			h.Logger.Debugf("Modified statement received from SQL handler: %s", newStmt)
 
-			data = append([]byte(data), 0)
+			data = append([]byte(newStmt), 0)
 			size = createPacketSize(len(data) + 4)
 		}
 
