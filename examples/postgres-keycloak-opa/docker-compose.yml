@@ -1,0 +1,69 @@
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HOSTNAME: keycloak
+    ports:
+      - 8080:8080
+    command:
+      - start-dev
+    networks:
+      - foodme
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: postgres
+    networks:
+      - foodme
+  opa:
+    image: openpolicyagent/opa:latest
+    networks:
+      - foodme
+    command:
+      - 'run'
+      - '--server'
+      - '--log-level=debug'
+      - '--addr=:8181'
+      - '/policies'
+    volumes:
+      - type: bind
+        source: ./policies
+        target: /policies
+  foodme:
+    build: ../../.
+    environment:
+      LOG_LEVEL: debug
+      DESTINATION_HOST: postgres
+      DESTINATION_PORT: 5432
+      DESTINATION_DATABASE_TYPE: postgres
+      DESTINATION_USERNAME: postgres
+      DESTINATION_PASSWORD: postgres
+      DESTINATION_LOG_UPSTREAM: true
+      DESTINATION_LOG_DOWNSTREAM: true
+      PORT: 2099
+      OIDC_ENABLED: true
+      OIDC_CLIENT_ID: pgpets
+      OIDC_CLIENT_SECRET: 'petsarenice'
+      OIDC_TOKEN_URL: http://keycloak:8080/realms/master/protocol/openid-connect/token
+      OIDC_USER_INFO_URL: http://keycloak:8080/realms/master/protocol/openid-connect/userinfo
+      OIDC_DATABASE_FALLBACK_TO_BASE_CLIENT: true
+      # OIDC_ASSUME_USER_SESSION: true
+      # OIDC_ASSUME_USER_SESSION_USERNAME_CLAIM: preferred_username
+      API_PORT: 10000
+      API_USERNAME_LIFETIME: 600
+      PERMISSION_AGENT_ENABLED: true
+      PERMISSION_AGENT_TYPE: opa
+      PERMISSION_AGENT_OPA_URL: http://opa:8181
+      PERMISSION_AGENT_OPA_QUERY_TEMPLATE: 'data.{{ .TableName }}.allow == true'
+      PERMISSION_AGENT_OPA_STRING_ESCAPE_CHARACTER: "'"
+    ports:
+      - 5432:2099
+      - 10000:10000
+    networks:
+      - foodme
+
+networks:
+  foodme:
+    name: foodme
