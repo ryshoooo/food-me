@@ -24,10 +24,11 @@ func (s *Server) Start() error {
 	}
 	defer listener.Close()
 	s.Logger.Infof("Listening for TCP connections at :%v", s.Configuration.ServerPort)
-	return s.Listen(listener)
+	httpClient := &http.Client{}
+	return s.Listen(listener, httpClient)
 }
 
-func (s *Server) Listen(listener net.Listener) error {
+func (s *Server) Listen(listener net.Listener, httpClient IHttpClient) error {
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -35,7 +36,6 @@ func (s *Server) Listen(listener net.Listener) error {
 			continue
 		}
 
-		httpClient := &http.Client{}
 		handler, err := GetHandler(s.Configuration, s.Logger, httpClient)
 		if err != nil {
 			s.Logger.WithField("component", "server").Errorf("Error getting handler: %v", err)

@@ -45,6 +45,15 @@ type Configuration struct {
 	OIDCAssumeUserSessionAllowEscape   bool   `long:"oidc-assume-user-session-allow-escape" env:"OIDC_ASSUME_USER_SESSION_ALLOW_ESCAPE" description:"Allow the user to escape the assumed session"`
 	OIDCPostAuthSQLTemplate            string `long:"oidc-post-auth-sql-template" env:"OIDC_POST_AUTH_SQL_TEMPLATE" description:"SQL template file to execute after a successful OIDC authentication"`
 
+	// Permission Agents
+	PermissionAgentEnabled bool   `long:"permission-agent-enabled" env:"PERMISSION_AGENT_ENABLED" description:"Enable permission agent for handling SQL queries"`
+	PermissionAgentType    string `long:"permission-agent-type" env:"PERMISSION_AGENT_TYPE" choice:"opa" description:"Permission agent type"`
+
+	// OPA Permission Agent Configuration
+	PermissionAgentOPAURL                   string `long:"permission-agent-opa-url" env:"PERMISSION_AGENT_OPA_URL" description:"URL endpoint for OPA server"`
+	PermissionAgentOPAQueryTemplate         string `long:"permission-agent-opa-query-template" env:"PERMISSION_AGENT_OPA_QUERY_TEMPLATE" description:"Golang template for OPA query formulation" default:"data.{{ .TableName }}.allow == true"`
+	PermissionAgentOPAStringEscapeCharacter string `long:"permission-agent-opa-string-escape-character" env:"PERMISSION_AGENT_OPA_STRING_ESCAPE_CHARACTER" description:"Wrap the resulting OPA string fields with this characters" default:"'"`
+
 	// TLS
 	ServerTLSEnabled            bool   `long:"server-tls-enabled" env:"SERVER_TLS_ENABLED" description:"Enable TLS for the server"`
 	ServerTLSCertificateFile    string `long:"server-tls-certificate-file" env:"SERVER_TLS_CERTIFICATE_FILE" description:"TLS certificate file"`

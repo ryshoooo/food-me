@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "postgres-keycloak"
+version = "0.1.0"
+description = "Postgres + Keycloak example"
+authors = ["Richard Nemeth <ryshoooo@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.11"
+python-keycloak = "^4.1.0"
+psycopg2 = "^2.9.9"
+pyodbc = "^5.1.0"
+requests = "^2.32.3"
+sqlalchemy = "^2.0.31"
+
+[[tool.poetry.source]]
+name = "PyPI"
+priority = "primary"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

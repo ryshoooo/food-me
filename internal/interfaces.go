@@ -23,9 +23,9 @@ type IUpstreamHandler interface {
 }
 
 type ISQLHandler interface {
-	Handle(sql string) (string, error)
+	Handle(sql string, userInfo map[string]interface{}) (string, error)
 }
 
 type IPermissionAgent interface {
-	GetFilters(tableName string, tableAlias string) ([]string, error)
+	GetFilters(tableName, tableAlias string, userInfo map[string]interface{}) (string, error)
 }

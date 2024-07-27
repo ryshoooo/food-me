@@ -2,7 +2,6 @@ package foodme
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/auxten/postgresql-parser/pkg/sql/parser"
 	"github.com/auxten/postgresql-parser/pkg/sql/sem/tree"
@@ -17,16 +16,19 @@ type PostgresSQLHandler struct {
 	withTables   map[string]string
 	handleFailed bool
 	handleError  error
+	userInfo     map[string]interface{}
 }
 
 func NewPostgresSQLHandler(logger *logrus.Logger, pAgent IPermissionAgent) ISQLHandler {
 	return &PostgresSQLHandler{Logger: logger, PermissionAgent: pAgent, withTables: make(map[string]string)}
 }
 
-func (p *PostgresSQLHandler) Handle(sql string) (string, error) {
+func (p *PostgresSQLHandler) Handle(sql string, userInfo map[string]interface{}) (string, error) {
 	if p.PermissionAgent == nil {
 		return sql, nil
 	}
+
+	p.userInfo = userInfo
 
 	statements, err := parser.Parse(sql)
 	if err != nil {
@@ -56,7 +58,7 @@ func HandleTables(ctx interface{}, node interface{}) (stop bool) {
 				if _, ok := h.withTables[tb.TableName]; ok {
 					continue
 				}
-				filters, err := h.PermissionAgent.GetFilters(tb.TableName, tb.TableAlias)
+				filters, err := h.PermissionAgent.GetFilters(tb.TableName, tb.TableAlias, h.userInfo)
 				if err != nil {
 					h.Logger.Errorf("failed to get filters for table %s: %v", tb.TableName, err)
 					h.handleFailed = true
@@ -64,8 +66,11 @@ func HandleTables(ctx interface{}, node interface{}) (stop bool) {
 					return true
 				}
 
-				where := strings.Join(filters, " AND ")
-				swwStmt, err := parser.Parse(fmt.Sprintf("select * from %s where %s", tb.TableName, where))
+				if filters == "" {
+					continue
+				}
+
+				swwStmt, err := parser.Parse(fmt.Sprintf("select * from %s where %s", tb.TableName, filters))
 				if err != nil {
 					h.Logger.Errorf("failed to parse where statement for table %s: %v", tb.TableName, err)
 					h.handleFailed = true

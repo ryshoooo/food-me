@@ -22,6 +22,14 @@ func GetHandler(conf *Configuration, logger *logrus.Logger, httpClient IHttpClie
 
 	switch conf.DestinationDatabaseType {
 	case "postgres":
+		var sqlHandler ISQLHandler = nil
+		if conf.PermissionAgentEnabled {
+			pAgent := NewPermissionAgent(conf, httpClient)
+			if pAgent == nil {
+				return nil, fmt.Errorf("unsupported permission agent")
+			}
+			sqlHandler = NewPostgresSQLHandler(logger, pAgent)
+		}
 		return NewPostgresHandler(
 				conf.DestinationHost+":"+fmt.Sprint(conf.DestinationPort),
 				conf.DestinationUsername,
@@ -39,6 +47,7 @@ func GetHandler(conf *Configuration, logger *logrus.Logger, httpClient IHttpClie
 				conf.OIDCDatabaseFallBackToBaseClient,
 				conf.OIDCDatabaseClients,
 				conf.OIDCPostAuthSQLTemplate,
+				sqlHandler,
 				conf.ServerTLSEnabled,
 				conf.ServerTLSCertificateFile,
 				conf.ServerTLSCertificateKeyFile,
