@@ -140,6 +140,8 @@ When making a Compile API request to OPA, we need to supply which policy/query i
 
 And that's it! Suddenly, you have your access defined as OPA policies, data stored in the DB without any worry and through the magic of FOOD-Me, they all come together on any TCP connection made to the database. Just like that, you can update permission policies without touching the database and authorize users to see/unsee data without touching the database as well. The database is there just to store data. Simple right.
 
+You can see a more detailed and fully-fleshed example of OPA with Postgres at https://github.com/ryshoooo/food-me/tree/main/examples/postgres-keycloak-opa.
+
 # Technical specification
 
 Jokes aside, let's get into some nitty-gritty boring nerd stuff.
