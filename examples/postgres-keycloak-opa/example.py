@@ -1,5 +1,6 @@
 import keycloak
 import sqlalchemy
+import logging
 import requests
 from sqlalchemy.orm import declarative_base, sessionmaker
 
@@ -58,7 +59,7 @@ admin.create_user(
 # Add groups to userinfo
 try:
     admin.add_mapper_to_client(
-        client_id=admin.get_client_id("pg-access"),
+        client_id=admin.get_client_id("pgpets"),
         payload={
             "config": {
                 "access.token.claim": "false",
@@ -155,6 +156,19 @@ p3 = Pets(
 db.add(p3)
 db.commit()
 
+p4 = Pets(
+    name="Bearro",
+    owner="michael",
+    veterinarian="doctor",
+    clinic="foodme",
+    weight=10,
+    age=2,
+    hidden=False,
+    deleted=True,
+)
+db.add(p4)
+db.commit()
+
 # What can I as the admin user see?
 print("Admin user, no assignments")
 for pet in db.query(Pets).all():
@@ -164,27 +178,93 @@ for pet in db.query(Pets).all():
 print(
     requests.post(
         "http://localhost:10000/permissionapply",
-        json={"username": user, "sql": "select * from pets"},
+        json={"username": user, "sql": str(db.query(Pets))},
     ).json()
 )
 
-# # Execute a query
-# cur = conn.cursor()
-# cur.execute("SELECT current_user;")
-# print(cur.fetchone())
+# Login as richard
+tokens = oid.token(username="richard", password="richard")
 
-# # 3. Using PyODBC - Only works with the connection API
-# # Pyodbc
-# conn_str = (
-#     "DRIVER={PostgreSQL Unicode};"
-#     "DATABASE=postgres;"
-#     f"UID={user};"
-#     "SERVER=localhost;"
-#     "PORT=5432;"
-# )
-# cnxn = pyodbc.connect(conn_str)
+# Create connection using the API
+resp = requests.post(
+    "http://localhost:10000/connection",
+    json={"access_token": tokens["access_token"], "refresh_token": tokens["refresh_token"]},
+).json()
+user = resp["username"]
 
-# # Execute a query
-# c = cnxn.cursor()
-# c.execute("SELECT current_user;")
-# print(c.fetchone())
+engine = sqlalchemy.create_engine(f"postgresql+psycopg2://{user}@localhost:5432/postgres")
+SLocal = sessionmaker(bind=engine)
+db = SLocal()
+
+print("Richard user, no assignments")
+for pet in db.query(Pets).all():
+    print(pet.__dict__)
+
+# Why? Let's investigate the query
+print(
+    requests.post(
+        "http://localhost:10000/permissionapply",
+        json={"username": user, "sql": str(db.query(Pets))},
+    ).json()
+)
+
+# Are the filters preserved?
+for pet in db.query(Pets).filter(Pets.clinic == "foodme").all():
+    print(pet.__dict__)
+
+
+# Let's make the admin user alpha
+admin.group_user_add(
+    user_id=admin.get_user_id("admin"), group_id=admin.get_group_by_path("alpha")["id"]
+)
+
+# Now should be able to see all unhidden pets
+tokens = oid.token(username="admin", password="admin")
+resp = requests.post(
+    "http://localhost:10000/connection",
+    json={"access_token": tokens["access_token"], "refresh_token": tokens["refresh_token"]},
+).json()
+user = resp["username"]
+engine = sqlalchemy.create_engine(f"postgresql+psycopg2://{user}@localhost:5432/postgres")
+SLocal = sessionmaker(bind=engine)
+db = SLocal()
+for pet in db.query(Pets).all():
+    print(pet.__dict__)
+
+
+# What if admin user is a killer?
+admin.group_user_add(
+    user_id=admin.get_user_id("admin"), group_id=admin.get_group_by_path("killer")["id"]
+)
+tokens = oid.token(username="admin", password="admin")
+resp = requests.post(
+    "http://localhost:10000/connection",
+    json={"access_token": tokens["access_token"], "refresh_token": tokens["refresh_token"]},
+).json()
+user = resp["username"]
+engine = sqlalchemy.create_engine(f"postgresql+psycopg2://{user}@localhost:5432/postgres")
+SLocal = sessionmaker(bind=engine)
+db = SLocal()
+
+try:
+    db.query(Pets).all()
+except Exception:
+    logging.exception("Expected failure to read pets")
+
+# Fails as expected, but admin groups can see everything, even if they are killers. Let's make
+# admin part of the admin group
+admin.group_user_add(
+    user_id=admin.get_user_id("admin"), group_id=admin.get_group_by_path("admin")["id"]
+)
+tokens = oid.token(username="admin", password="admin")
+resp = requests.post(
+    "http://localhost:10000/connection",
+    json={"access_token": tokens["access_token"], "refresh_token": tokens["refresh_token"]},
+).json()
+user = resp["username"]
+engine = sqlalchemy.create_engine(f"postgresql+psycopg2://{user}@localhost:5432/postgres")
+SLocal = sessionmaker(bind=engine)
+db = SLocal()
+
+for pet in db.query(Pets).all():
+    print(pet.__dict__)

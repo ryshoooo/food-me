@@ -28,7 +28,7 @@ Pretty neat and yummy. Right?
 - User impersonation in the session
 - Handles TLS connections and supports custom certificates
 - Most common drivers and databases (wishful thinking, needs work ¯\\\_(ツ)\_/¯)
-- OPA integration (wishful thinking, needs work ¯\\\_(ツ)\_/¯)
+- OPA integration
 
 ## How does it work?
 
@@ -119,6 +119,26 @@ With double TLS, there is an overhead of double-TLS termination. What that means
 You can also use the server certificate and key to encrypt the API connections. So really go TLS all the way.
 
 You can find a detailed example of a single TLS connection at https://github.com/ryshoooo/food-me/tree/main/examples/postgres-keycloak-tls and a double TLS connection at https://github.com/ryshoooo/food-me/tree/main/examples/postgres-keycloak-double-tls.
+
+### How can I use OPA for access control?
+
+That's right, FOOD-Me comes with a native OPA integration. Maybe it's a good idea first to read what [OPA](https://www.openpolicyagent.org/) actually is, but in a friendly TLDR: OPA allows defining policies and applying them across the "entire stack", i.e. anywhere at anytime.
+
+OPA by itself doesn't really come with a natural SQL integration, however, they claim to do so via [the infamous blog post](https://blog.openpolicyagent.org/write-policy-in-opa-enforce-policy-in-sql-d9d24db93bf4) and some attempts to make the [SQL parser in Python](https://github.com/open-policy-agent/contrib/tree/main/data_filter_example). They have however included the [Compile API](https://www.openpolicyagent.org/docs/latest/rest-api/#compile-api), which is all we need to have our OPA integration working.
+
+So what is actually going on in FOOD-Me and its OPA integration? FOOD-Me allows to specify a SQL handler object, that is an object that takes a SQL statement as an input and returns a SQL statement as an output. It also comes with an OPA SQL handler, which takes in the SQL statement, parses the SQL statement, finds all the referenced tables in the statement and for each table calls the OPA compile API to verify whether the user has access to the specified table. If the OPA API says no, the SQL statement is terminated and an error is returned to the client. If the OPA API says yes, the SQL statement is unchanged and forwarded to the database as is. If the OPA API says yes, BUT only if these next X, Y and Z conditions are satisfied, then these X, Y and Z conditions get converted into WHERE and JOIN SQL statements and plugged into the original statement.
+
+Neat.
+
+However, this isn't all just working without some agreements being made between FOOD-Me and OPA. The main assumption is that anything under the `data.tables` is considered an unknown by OPA, while a table definition by FOOD-Me. Therefore if you wish to add a conditional policy statement on the column named `C` in the table named `X`, the OPA statement should be `data.tables.X.C = "myvalue"` or whatever the condition should be, FOOD-Me will then automatically translate this into `WHERE C = 'myvalue'` SQL statement plugged into the SELECT statement attached to the `FROM X` table.
+
+The second assumption is not really an assumption, but a good thing to know for your OPA policy statements. FOOD-Me also sends the UserInfo object into the compile OPA request, which can be freely used in your OPA policies. The UserInfo data are available in the policies under the `input.userinfo` and obviously, it is your OIDC IdP that controls what is actually in the UserInfo. Be aware that the `input.userinfo` is not considered an unknown by OPA and will be evaluated directly wherever possible.
+
+The third assumption is that your policy names follow a certain convention. It doesn't have to be a specific convention, but abstract enough such that a simple golang text template can fit the name. Wtf am I talking about?
+
+When making a Compile API request to OPA, we need to supply which policy/query is to be evaluated. This is configurable, but remember that we call OPA API for every table name found in the SQL statement. Therefore the query needs to include the table name in some format/some way in the API request. This is what the `PERMISSION_AGENT_OPA_QUERY_TEMPLATE` allows you to specify, a golang text template that is evaluated each time we call the compile API. The context given to the template is a simple struct with a single field `{ TableName: string }` and no methods defined on it, so good luck fiddling with it. We have some reasonable defaults though, so try to follow what we suggest, your life will be easier... really.
+
+And that's it! Suddenly, you have your access defined as OPA policies, data stored in the DB without any worry and through the magic of FOOD-Me, they all come together on any TCP connection made to the database. Just like that, you can update permission policies without touching the database and authorize users to see/unsee data without touching the database as well. The database is there just to store data. Simple right.
 
 # Technical specification
 
