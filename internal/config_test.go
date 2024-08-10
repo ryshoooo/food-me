@@ -35,6 +35,11 @@ func TestNewConfigurationDefaults(t *testing.T) {
 	assert.Equal(t, c.OIDCDatabaseFallBackToBaseClient, false)
 	assert.DeepEqual(t, c.OIDCDatabaseClients, map[string]*OIDCDatabaseClientSpec{})
 	assert.Equal(t, c.OIDCPostAuthSQLTemplate, "")
+	assert.Equal(t, c.PermissionAgentEnabled, false)
+	assert.Equal(t, c.PermissionAgentType, "")
+	assert.Equal(t, c.PermissionAgentOPAURL, "")
+	assert.Equal(t, c.PermissionAgentOPAQueryTemplate, "data.{{ .TableName }}.allow == true")
+	assert.Equal(t, c.PermissionAgentOPAStringEscapeCharacter, "'")
 	assert.Equal(t, c.ServerTLSEnabled, false)
 	assert.Equal(t, c.ServerTLSCertificateFile, "")
 	assert.Equal(t, c.ServerTLSCertificateKeyFile, "")
@@ -43,6 +48,7 @@ func TestNewConfigurationDefaults(t *testing.T) {
 	assert.Equal(t, c.OIDCAssumeUserSessionAllowEscape, false)
 	assert.Equal(t, c.ServerPort, 2099)
 	assert.Equal(t, c.ApiPort, 10000)
+	assert.Equal(t, c.APITLSEnabled, false)
 	assert.Equal(t, c.ApiUsernameLifetime, 3600)
 	assert.Equal(t, c.ApiGarbageCollectionPeriod, 60)
 }
@@ -67,6 +73,11 @@ func TestNewConfigurationFull(t *testing.T) {
 		"--oidc-database-client-secret", "postgres=pg-secret,secretstuff=more-secret",
 		"--oidc-database-fallback-to-base-client",
 		"--oidc-post-auth-sql-template", "../data/test_sql.sql",
+		"--permission-agent-enabled",
+		"--permission-agent-type", "opa",
+		"--permission-agent-opa-url", "http://opa",
+		"--permission-agent-opa-query-template", "data.{{ .TableName }}.blah == false",
+		"--permission-agent-opa-string-escape-character", "''",
 		"--oidc-assume-user-session",
 		"--oidc-assume-user-session-username-claim", "db_role",
 		"--oidc-assume-user-session-allow-escape",
@@ -75,6 +86,7 @@ func TestNewConfigurationFull(t *testing.T) {
 		"--server-tls-certificate-key-file", "../data/key.pem",
 		"--port", "9876",
 		"--api-port", "8888",
+		"--api-tls-enabled",
 		"--api-username-lifetime", "7200",
 		"--api-garbage-collection-period", "6000",
 	})
@@ -102,6 +114,11 @@ func TestNewConfigurationFull(t *testing.T) {
 		"secretstuff": {ClientID: "secretstuff-client-id", ClientSecret: "more-secret"},
 	})
 	assert.Equal(t, c.OIDCPostAuthSQLTemplate, "../data/test_sql.sql")
+	assert.Equal(t, c.PermissionAgentEnabled, true)
+	assert.Equal(t, c.PermissionAgentType, "opa")
+	assert.Equal(t, c.PermissionAgentOPAURL, "http://opa")
+	assert.Equal(t, c.PermissionAgentOPAQueryTemplate, "data.{{ .TableName }}.blah == false")
+	assert.Equal(t, c.PermissionAgentOPAStringEscapeCharacter, "''")
 	assert.Equal(t, c.OIDCAssumeUserSession, true)
 	assert.Equal(t, c.OIDCAssumeUserSessionUsernameClaim, "db_role")
 	assert.Equal(t, c.OIDCAssumeUserSessionAllowEscape, true)
@@ -110,6 +127,7 @@ func TestNewConfigurationFull(t *testing.T) {
 	assert.Equal(t, c.ServerTLSCertificateKeyFile, "../data/key.pem")
 	assert.Equal(t, c.ServerPort, 9876)
 	assert.Equal(t, c.ApiPort, 8888)
+	assert.Equal(t, c.APITLSEnabled, true)
 	assert.Equal(t, c.ApiUsernameLifetime, 7200)
 	assert.Equal(t, c.ApiGarbageCollectionPeriod, 6000)
 }
