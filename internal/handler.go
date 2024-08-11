@@ -20,8 +20,8 @@ func GetHandler(conf *Configuration, logger *logrus.Logger, httpClient IHttpClie
 		Address: conf.DestinationHost + ":" + fmt.Sprint(conf.DestinationPort),
 	}
 
-	var sqlHandler ISQLHandler = nil
-	var err error = nil
+	var sqlHandler ISQLHandler
+	var err error
 	if conf.PermissionAgentEnabled {
 		pAgent := NewPermissionAgent(conf, httpClient)
 		if pAgent == nil {
