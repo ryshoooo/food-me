@@ -38,7 +38,10 @@ func TestNewConfigurationDefaults(t *testing.T) {
 	assert.Equal(t, c.PermissionAgentEnabled, false)
 	assert.Equal(t, c.PermissionAgentType, "")
 	assert.Equal(t, c.PermissionAgentOPAURL, "")
-	assert.Equal(t, c.PermissionAgentOPAQueryTemplate, "data.{{ .TableName }}.allow == true")
+	assert.Equal(t, c.PermissionAgentOPASelectQueryTemplate, "data.{{ .TableName }}.allow == true")
+	assert.Equal(t, c.PermissionAgentOPACreateQuery, "data.ddl_create.allow == true")
+	assert.Equal(t, c.PermissionAgentOPAUpdateQuery, "data.ddl_update.allow == true")
+	assert.Equal(t, c.PermissionAgentOPADeleteQuery, "data.ddl_delete.allow == true")
 	assert.Equal(t, c.PermissionAgentOPAStringEscapeCharacter, "'")
 	assert.Equal(t, c.ServerTLSEnabled, false)
 	assert.Equal(t, c.ServerTLSCertificateFile, "")
@@ -76,7 +79,10 @@ func TestNewConfigurationFull(t *testing.T) {
 		"--permission-agent-enabled",
 		"--permission-agent-type", "opa",
 		"--permission-agent-opa-url", "http://opa",
-		"--permission-agent-opa-query-template", "data.{{ .TableName }}.blah == false",
+		"--permission-agent-opa-select-query-template", "data.{{ .TableName }}.blah == false",
+		"--permission-agent-opa-create-query", "create query",
+		"--permission-agent-opa-update-query", "update query",
+		"--permission-agent-opa-delete-query", "delete query",
 		"--permission-agent-opa-string-escape-character", "''",
 		"--oidc-assume-user-session",
 		"--oidc-assume-user-session-username-claim", "db_role",
@@ -117,7 +123,10 @@ func TestNewConfigurationFull(t *testing.T) {
 	assert.Equal(t, c.PermissionAgentEnabled, true)
 	assert.Equal(t, c.PermissionAgentType, "opa")
 	assert.Equal(t, c.PermissionAgentOPAURL, "http://opa")
-	assert.Equal(t, c.PermissionAgentOPAQueryTemplate, "data.{{ .TableName }}.blah == false")
+	assert.Equal(t, c.PermissionAgentOPASelectQueryTemplate, "data.{{ .TableName }}.blah == false")
+	assert.Equal(t, c.PermissionAgentOPACreateQuery, "create query")
+	assert.Equal(t, c.PermissionAgentOPAUpdateQuery, "update query")
+	assert.Equal(t, c.PermissionAgentOPADeleteQuery, "delete query")
 	assert.Equal(t, c.PermissionAgentOPAStringEscapeCharacter, "''")
 	assert.Equal(t, c.OIDCAssumeUserSession, true)
 	assert.Equal(t, c.OIDCAssumeUserSessionUsernameClaim, "db_role")

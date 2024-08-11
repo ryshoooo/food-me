@@ -2,7 +2,6 @@ package foodme
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/auxten/postgresql-parser/pkg/sql/sem/tree"
@@ -19,10 +18,16 @@ type ColFilter struct {
 type FailingAgent struct{}
 type BadFiltersAgent struct{}
 type DummyAgent struct {
-	Filters []ColFilter
+	Filters       []ColFilter
+	create        bool
+	update        bool
+	delete        bool
+	setCreateFail bool
+	setUpdateFail bool
+	setDeleteFail bool
 }
 
-func (d *DummyAgent) GetFilters(tableName string, tableAlias string, userInfo map[string]interface{}) (string, error) {
+func (d *DummyAgent) SelectFilters(tableName string, tableAlias string, userInfo map[string]interface{}) (*SelectFilters, error) {
 	res := []string{}
 	for _, filter := range d.Filters {
 		if tableAlias != "" {
@@ -31,15 +36,96 @@ func (d *DummyAgent) GetFilters(tableName string, tableAlias string, userInfo ma
 			res = append(res, fmt.Sprintf("%s %s %s", filter.ColumnName, filter.Operator, filter.ColumnValue))
 		}
 	}
-	return strings.Join(res, " AND "), nil
+	return &SelectFilters{WhereFilters: res, JoinFilters: []*JoinFilter{}}, nil
 }
 
-func (a *FailingAgent) GetFilters(tableName string, tableAlias string, userInfo map[string]interface{}) (string, error) {
-	return "", fmt.Errorf("no filters")
+func (d *DummyAgent) CreateAllowed() bool {
+	return d.create
 }
 
-func (a *BadFiltersAgent) GetFilters(tableName string, tableAlias string, userInfo map[string]interface{}) (string, error) {
-	return "select * from abhram", nil
+func (d *DummyAgent) UpdateAllowed() bool {
+	return d.update
+}
+
+func (d *DummyAgent) DeleteAllowed() bool {
+	return d.delete
+}
+
+func (d *DummyAgent) SetCreateAllowed(userInfo map[string]interface{}) error {
+	if d.setCreateFail {
+		return fmt.Errorf("failed to set create allowed")
+	}
+	return nil
+}
+
+func (d *DummyAgent) SetUpdateAllowed(userInfo map[string]interface{}) error {
+	if d.setUpdateFail {
+		return fmt.Errorf("failed to set update allowed")
+	}
+	return nil
+}
+
+func (d *DummyAgent) SetDeleteAllowed(userInfo map[string]interface{}) error {
+	if d.setDeleteFail {
+		return fmt.Errorf("failed to set delete allowed")
+	}
+	return nil
+}
+
+func (a *FailingAgent) SelectFilters(tableName string, tableAlias string, userInfo map[string]interface{}) (*SelectFilters, error) {
+	return nil, fmt.Errorf("no filters")
+}
+
+func (a *FailingAgent) CreateAllowed() bool {
+	return false
+}
+
+func (a *FailingAgent) UpdateAllowed() bool {
+	return false
+}
+
+func (a *FailingAgent) DeleteAllowed() bool {
+	return false
+}
+
+func (a *FailingAgent) SetCreateAllowed(userInfo map[string]interface{}) error {
+	return nil
+}
+
+func (a *FailingAgent) SetUpdateAllowed(userInfo map[string]interface{}) error {
+	return nil
+}
+
+func (a *FailingAgent) SetDeleteAllowed(userInfo map[string]interface{}) error {
+	return nil
+}
+
+func (a *BadFiltersAgent) SelectFilters(tableName string, tableAlias string, userInfo map[string]interface{}) (*SelectFilters, error) {
+	return &SelectFilters{WhereFilters: []string{"select * from abhram"}, JoinFilters: []*JoinFilter{}}, nil
+}
+
+func (a *BadFiltersAgent) CreateAllowed() bool {
+	return false
+}
+
+func (a *BadFiltersAgent) UpdateAllowed() bool {
+	return false
+}
+
+func (a *BadFiltersAgent) DeleteAllowed() bool {
+	return false
+}
+
+func (a *BadFiltersAgent) SetCreateAllowed(userInfo map[string]interface{}) error {
+	return nil
+}
+
+func (a *BadFiltersAgent) SetUpdateAllowed(userInfo map[string]interface{}) error {
+	return nil
+}
+
+func (a *BadFiltersAgent) SetDeleteAllowed(userInfo map[string]interface{}) error {
+	return nil
 }
 
 func TestHandleSQLWithoutAgent(t *testing.T) {
@@ -252,4 +338,73 @@ func TestEmptyTableName(t *testing.T) {
 	tbl := &tree.RowsFromExpr{}
 	r := getTableNamesAndAliases(tbl)
 	assert.Equal(t, len(r), 0)
+}
+
+func TestCreate(t *testing.T) {
+	log := logrus.StandardLogger()
+	sql := "CREATE TABLE test (id INT8)"
+	agent := &DummyAgent{Filters: []ColFilter{}}
+	handler := NewPostgresSQLHandler(log, agent)
+	_, err := handler.Handle(sql, nil)
+	assert.Error(t, err, "create operation is not allowed")
+
+	agent.create = true
+	handler = NewPostgresSQLHandler(log, agent)
+	res, err := handler.Handle(sql, nil)
+	assert.NilError(t, err)
+	assert.Equal(t, res, sql)
+}
+
+func TestUpdate(t *testing.T) {
+	log := logrus.StandardLogger()
+	sql := "UPDATE test SET age = 18 WHERE name = 'john'"
+	agent := &DummyAgent{Filters: []ColFilter{}}
+	handler := NewPostgresSQLHandler(log, agent)
+	_, err := handler.Handle(sql, nil)
+	assert.Error(t, err, "update operation is not allowed")
+
+	agent.update = true
+	handler = NewPostgresSQLHandler(log, agent)
+	res, err := handler.Handle(sql, nil)
+	assert.NilError(t, err)
+	assert.Equal(t, res, sql)
+}
+
+func TestDelete(t *testing.T) {
+	log := logrus.StandardLogger()
+	sql := "DROP DATABASE test"
+	agent := &DummyAgent{Filters: []ColFilter{}}
+	handler := NewPostgresSQLHandler(log, agent)
+	_, err := handler.Handle(sql, nil)
+	assert.Error(t, err, "delete operation is not allowed")
+
+	agent.delete = true
+	handler = NewPostgresSQLHandler(log, agent)
+	res, err := handler.Handle(sql, nil)
+	assert.NilError(t, err)
+	assert.Equal(t, res, sql)
+}
+
+func TestSetDDL(t *testing.T) {
+	log := logrus.StandardLogger()
+	agent := &DummyAgent{Filters: []ColFilter{}}
+	handler := NewPostgresSQLHandler(log, agent)
+
+	agent.setCreateFail = true
+	err := handler.SetDDL(nil)
+	assert.Error(t, err, "failed to set create allowed")
+
+	agent.setCreateFail = false
+	agent.setUpdateFail = true
+	err = handler.SetDDL(nil)
+	assert.Error(t, err, "failed to set update allowed")
+
+	agent.setUpdateFail = false
+	agent.setDeleteFail = true
+	err = handler.SetDDL(nil)
+	assert.Error(t, err, "failed to set delete allowed")
+
+	agent.setDeleteFail = false
+	err = handler.SetDDL(nil)
+	assert.NilError(t, err)
 }
