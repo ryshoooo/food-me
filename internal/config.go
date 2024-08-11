@@ -51,7 +51,10 @@ type Configuration struct {
 
 	// OPA Permission Agent Configuration
 	PermissionAgentOPAURL                   string `long:"permission-agent-opa-url" env:"PERMISSION_AGENT_OPA_URL" description:"URL endpoint for OPA server"`
-	PermissionAgentOPAQueryTemplate         string `long:"permission-agent-opa-query-template" env:"PERMISSION_AGENT_OPA_QUERY_TEMPLATE" description:"Golang template for OPA query formulation" default:"data.{{ .TableName }}.allow == true"`
+	PermissionAgentOPASelectQueryTemplate   string `long:"permission-agent-opa-select-query-template" env:"PERMISSION_AGENT_OPA_SELECT_QUERY_TEMPLATE" description:"Golang template for OPA SELECT query formulation" default:"data.{{ .TableName }}.allow == true"`
+	PermissionAgentOPACreateQuery           string `long:"permission-agent-opa-create-query" env:"PERMISSION_AGENT_OPA_CREATE_QUERY" description:"OPA query for CREATE operations" default:"data.ddl_create.allow == true"`
+	PermissionAgentOPAUpdateQuery           string `long:"permission-agent-opa-update-query" env:"PERMISSION_AGENT_OPA_UPDATE_QUERY" description:"OPA query for UPDATE operations" default:"data.ddl_update.allow == true"`
+	PermissionAgentOPADeleteQuery           string `long:"permission-agent-opa-delete-query" env:"PERMISSION_AGENT_OPA_DELETE_QUERY" description:"OPA query for DELETE operations" default:"data.ddl_delete.allow == true"`
 	PermissionAgentOPAStringEscapeCharacter string `long:"permission-agent-opa-string-escape-character" env:"PERMISSION_AGENT_OPA_STRING_ESCAPE_CHARACTER" description:"Wrap the resulting OPA string fields with this characters" default:"'"`
 
 	// TLS

@@ -20,16 +20,21 @@ func GetHandler(conf *Configuration, logger *logrus.Logger, httpClient IHttpClie
 		Address: conf.DestinationHost + ":" + fmt.Sprint(conf.DestinationPort),
 	}
 
+	var sqlHandler ISQLHandler = nil
+	var err error = nil
+	if conf.PermissionAgentEnabled {
+		pAgent := NewPermissionAgent(conf, httpClient)
+		if pAgent == nil {
+			return nil, fmt.Errorf("unsupported permission agent")
+		}
+		sqlHandler, err = NewSQLHandler(conf.DestinationDatabaseType, logger, pAgent)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create SQL handler: %w", err)
+		}
+	}
+
 	switch conf.DestinationDatabaseType {
 	case "postgres":
-		var sqlHandler ISQLHandler = nil
-		if conf.PermissionAgentEnabled {
-			pAgent := NewPermissionAgent(conf, httpClient)
-			if pAgent == nil {
-				return nil, fmt.Errorf("unsupported permission agent")
-			}
-			sqlHandler = NewPostgresSQLHandler(logger, pAgent)
-		}
 		return NewPostgresHandler(
 				conf.DestinationHost+":"+fmt.Sprint(conf.DestinationPort),
 				conf.DestinationUsername,
