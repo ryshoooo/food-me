@@ -241,6 +241,26 @@ func TestApplyPermissionAgent(t *testing.T) {
 	assert.DeepEqual(t, w.headers.headers, []int{500})
 	assert.DeepEqual(t, w.buffer.buffer, []byte("{\"detail\":\"Failed to set DDL: failed to unmarshal response body: invalid character 'b' looking for beginning of value\"}\n"))
 
+	// Fail to handle SQL
+	mockHttpClient = &MockHttpClient{
+		DoSucceed: true,
+		Response: []string{
+			"{\"access_token\":\"access\"}",
+			"{\"preferred_username\":\"test_user\"}",
+			"{}",
+			"{}",
+			"{}",
+			"{}",
+		},
+		StatusCode: 200,
+	}
+	handler = ApplyPermissionAgent(log, conf, mockHttpClient)
+	w = MockResponseWriter{buffer: &MockBuffer{buffer: []byte{}}, headers: &MockHeaders{headers: []int{}}}
+	r = &http.Request{Body: &MockBody{Body: "{\"username\":\"test\", \"sql\":\"select * from pets\"}"}}
+	handler(w, r)
+	assert.DeepEqual(t, w.headers.headers, []int{500})
+	assert.DeepEqual(t, w.buffer.buffer, []byte("{\"detail\":\"Failed to handle SQL: failed to get filters for table pets: permission denied to access table pets\"}\n"))
+
 	// OK
 	mockHttpClient = &MockHttpClient{
 		DoSucceed: true,
