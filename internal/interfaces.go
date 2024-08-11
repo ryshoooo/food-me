@@ -24,8 +24,15 @@ type IUpstreamHandler interface {
 
 type ISQLHandler interface {
 	Handle(sql string, userInfo map[string]interface{}) (string, error)
+	SetDDL(userInfo map[string]interface{}) error
 }
 
 type IPermissionAgent interface {
-	GetFilters(tableName, tableAlias string, userInfo map[string]interface{}) (string, error)
+	SelectFilters(tableName, tableAlias string, userInfo map[string]interface{}) (*SelectFilters, error)
+	CreateAllowed() bool
+	UpdateAllowed() bool
+	DeleteAllowed() bool
+	SetCreateAllowed(userInfo map[string]interface{}) error
+	SetUpdateAllowed(userInfo map[string]interface{}) error
+	SetDeleteAllowed(userInfo map[string]interface{}) error
 }

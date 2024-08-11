@@ -381,6 +381,15 @@ func (h *PostgresHandler) authenticate(sizebuff []byte) error {
 		}
 	}
 
+	// Set DDL for SQL Handler
+	if h.SQLHandler != nil {
+		h.Logger.Info("Setting DDL for SQL handler")
+		err = h.SQLHandler.SetDDL(h.userinfo)
+		if err != nil {
+			return err
+		}
+	}
+
 	// Send OK to client
 	err = h.write([]byte{90, 0, 0, 0, 5, 73}, "client")
 	if err != nil {

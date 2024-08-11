@@ -127,6 +127,13 @@ func ApplyPermissionAgent(logger *logrus.Logger, conf *foodme.Configuration, htt
 			return
 		}
 
+		err = sqlHandler.SetDDL(uinfo)
+		if err != nil {
+			logger.WithFields(logrus.Fields{"component": "api"}).Errorf("[%p] %s", r, err)
+			HandleErrorResponse(w, http.StatusInternalServerError, "Failed to set DDL: "+err.Error())
+			return
+		}
+
 		newSQL, err := sqlHandler.Handle(data.SQL, uinfo)
 		if err != nil {
 			logger.WithFields(logrus.Fields{"component": "api"}).Errorf("[%p] %s", r, err)

@@ -312,9 +312,9 @@ func TestCompileResponseEdge(t *testing.T) {
 }
 
 func TestOPASQLBuildPayload(t *testing.T) {
-	opa := NewOPASQL("opa-server", "data.{{ .TableName }}.allow == true", "'", nil)
+	opa := NewOPASQL("opa-server", "data.{{ .TableName }}.allow == true", "data.ddl_create.allow == true", "data.ddl_update.allow == true", "data.ddl_delete.allow == true", "'", nil)
 	userInfo := map[string]interface{}{"preferred_username": "test"}
-	payload, err := opa.BuildPayload("tablename", userInfo)
+	payload, err := opa.BuildPayload("select", "tablename", userInfo)
 	assert.NilError(t, err)
 	assert.DeepEqual(t, payload, &CompilePayload{
 		Query:    "data.tablename.allow == true",
@@ -324,10 +324,10 @@ func TestOPASQLBuildPayload(t *testing.T) {
 }
 
 func TestOPASQLBuildPayloadFailures(t *testing.T) {
-	opa := NewOPASQL("opa-server", "data.{{ eq .TableName }}.allow == true", "'", nil)
+	opa := NewOPASQL("opa-server", "data.{{ eq .TableName }}.allow == true", "data.ddl_create.allow == true", "data.ddl_update.allow == true", "data.ddl_delete.allow == true", "'", nil)
 	userInfo := map[string]interface{}{"preferred_username": "test"}
-	_, err := opa.BuildPayload("tablename", userInfo)
-	assert.Error(t, err, "failed to execute query template: template: query:1:8: executing \"query\" at <eq .TableName>: error calling eq: missing argument for comparison")
+	_, err := opa.BuildPayload("select", "tablename", userInfo)
+	assert.Error(t, err, "failed to execute SELECT query template: template: query:1:8: executing \"query\" at <eq .TableName>: error calling eq: missing argument for comparison")
 }
 
 type MockOPAHTTPClient struct {
@@ -359,9 +359,9 @@ func (m *MockOPAHTTPClient) Do(req *http.Request) (*http.Response, error) {
 
 func TestOPASQLQueryOK(t *testing.T) {
 	opaHttpClient := &MockOPAHTTPClient{DoSucceed: true, Response: `{"result": {"queries": [[]]}}`, StatusCode: 200}
-	opa := NewOPASQL("opa-server", "data.{{ .TableName }}.allow == true", "'", opaHttpClient)
+	opa := NewOPASQL("opa-server", "data.{{ .TableName }}.allow == true", "data.ddl_create.allow == true", "data.ddl_update.allow == true", "data.ddl_delete.allow == true", "'", opaHttpClient)
 	userInfo := map[string]interface{}{"preferred_username": "test"}
-	payload, err := opa.BuildPayload("tablename", userInfo)
+	payload, err := opa.BuildPayload("select", "tablename", userInfo)
 	assert.NilError(t, err)
 	resp, err := opa.Query(payload)
 	assert.NilError(t, err)
@@ -372,9 +372,9 @@ func TestOPASQLQueryFailures(t *testing.T) {
 	opaHttpClient := &MockOPAHTTPClient{}
 
 	// Bad payload
-	opa := NewOPASQL("opa-server", "data.{{ .TableName }}.allow == true", "'", opaHttpClient)
+	opa := NewOPASQL("opa-server", "data.{{ .TableName }}.allow == true", "data.ddl_create.allow == true", "data.ddl_update.allow == true", "data.ddl_delete.allow == true", "'", opaHttpClient)
 	userInfo := map[string]interface{}{"preferred_username": map[interface{}]bool{nil: false}}
-	payload, err := opa.BuildPayload("tablename", userInfo)
+	payload, err := opa.BuildPayload("select", "tablename", userInfo)
 	assert.NilError(t, err)
 	_, err = opa.Query(payload)
 	assert.Error(t, err, "failed to marshal json payload: json: unsupported type: map[interface {}]bool")
@@ -382,7 +382,7 @@ func TestOPASQLQueryFailures(t *testing.T) {
 	// Bad address
 	userInfo = map[string]interface{}{"preferred_username": "user"}
 	opa.Address = "bad://bad url"
-	payload, err = opa.BuildPayload("tablename", userInfo)
+	payload, err = opa.BuildPayload("select", "tablename", userInfo)
 	assert.NilError(t, err)
 	_, err = opa.Query(payload)
 	assert.Error(t, err, "failed to create request: parse \"bad://bad url/v1/compile\": invalid character \" \" in host name")
@@ -390,7 +390,7 @@ func TestOPASQLQueryFailures(t *testing.T) {
 	// Bad request
 	opa.Address = "http://opa-server"
 	opaHttpClient.DoSucceed = false
-	payload, err = opa.BuildPayload("tablename", userInfo)
+	payload, err = opa.BuildPayload("select", "tablename", userInfo)
 	assert.NilError(t, err)
 	_, err = opa.Query(payload)
 	assert.Error(t, err, "failed to execute request: failed to do request")
@@ -398,7 +398,7 @@ func TestOPASQLQueryFailures(t *testing.T) {
 	// Bad response code
 	opaHttpClient.DoSucceed = true
 	opaHttpClient.StatusCode = 500
-	payload, err = opa.BuildPayload("tablename", userInfo)
+	payload, err = opa.BuildPayload("select", "tablename", userInfo)
 	assert.NilError(t, err)
 	_, err = opa.Query(payload)
 	assert.Error(t, err, "unexpected status code from OPA: 500")
@@ -406,7 +406,7 @@ func TestOPASQLQueryFailures(t *testing.T) {
 	// Fail body read
 	opaHttpClient.StatusCode = 200
 	opaHttpClient.FailBodyRead = true
-	payload, err = opa.BuildPayload("tablename", userInfo)
+	payload, err = opa.BuildPayload("select", "tablename", userInfo)
 	assert.NilError(t, err)
 	_, err = opa.Query(payload)
 	assert.Error(t, err, "failed to read response body: body read failure")
@@ -414,7 +414,7 @@ func TestOPASQLQueryFailures(t *testing.T) {
 	// Fail unmarshal
 	opaHttpClient.FailBodyRead = false
 	opaHttpClient.Response = "bad response"
-	payload, err = opa.BuildPayload("tablename", userInfo)
+	payload, err = opa.BuildPayload("select", "tablename", userInfo)
 	assert.NilError(t, err)
 	_, err = opa.Query(payload)
 	assert.Error(t, err, "failed to unmarshal response body: invalid character 'b' looking for beginning of value")
@@ -423,34 +423,41 @@ func TestOPASQLQueryFailures(t *testing.T) {
 func TestOPASQLGetFilters(t *testing.T) {
 	// Is allowed
 	opaHttpClient := &MockOPAHTTPClient{DoSucceed: true, Response: `{"result": {"queries": [[]]}}`, StatusCode: 200}
-	opa := NewOPASQL("opa-server", "data.{{ .TableName }}.allow == true", "'", opaHttpClient)
+	opa := NewOPASQL("opa-server", "data.{{ .TableName }}.allow == true", "data.ddl_create.allow == true", "data.ddl_update.allow == true", "data.ddl_delete.allow == true", "'", opaHttpClient)
 	userInfo := map[string]interface{}{"preferred_username": "test"}
-	filters, err := opa.GetFilters("pets", "p", userInfo)
+	filters, err := opa.SelectFilters("pets", "p", userInfo)
 	assert.NilError(t, err)
-	assert.Equal(t, filters, "")
+	assert.Equal(t, len(filters.WhereFilters), 0)
+	assert.Equal(t, len(filters.JoinFilters), 0)
 
 	// Is disallowed
 	opaHttpClient.Response = `{"result": {}}`
-	_, err = opa.GetFilters("pets", "p", userInfo)
+	_, err = opa.SelectFilters("pets", "p", userInfo)
 	assert.Error(t, err, "permission denied to access table pets")
 
 	// Simple filter
 	opaHttpClient.Response = `{"result": {"queries": [[{"index": 0, "terms": [{"type": "ref", "value": [{"type": "var", "value": "eq"}]}, {"type": "string", "value": "dog"}, {"type": "ref", "value": [{"type": "var", "value": "data"}, {"type": "string", "value": "tables"}, {"type": "string", "value": "pets"}, {"type": "string", "value": "animal_type"}]}]}]]}}`
-	filters, err = opa.GetFilters("pets", "p", userInfo)
+	filters, err = opa.SelectFilters("pets", "p", userInfo)
 	assert.NilError(t, err)
-	assert.Equal(t, filters, "((p.animal_type = 'dog'))")
+	assert.Equal(t, len(filters.WhereFilters), 1)
+	assert.Equal(t, filters.WhereFilters[0], "((p.animal_type = 'dog'))")
+
+	// Failing filter
+	opaHttpClient.Response = `{"result": {"queries": [[{"index": 0, "terms": [{"type": "ref", "value": [{"type": "var", "value": "eq"}]}]}]]}}`
+	_, err = opa.SelectFilters("pets", "p", userInfo)
+	assert.Error(t, err, "failed to compile response: failed to compile response: unexpected number of terms in query: 1")
 }
 
 func TestOPASQLGetFiltersFailures(t *testing.T) {
 	opaHttpClient := &MockOPAHTTPClient{}
-	opa := NewOPASQL("opa-server", "data.{{ eq .TableName }}.allow == true", "'", opaHttpClient)
+	opa := NewOPASQL("opa-server", "data.{{ eq .TableName }}.allow == true", "data.ddl_create.allow == true", "data.ddl_update.allow == true", "data.ddl_delete.allow == true", "'", opaHttpClient)
 	userInfo := map[string]interface{}{"preferred_username": "test"}
-	_, err := opa.GetFilters("pets", "p", userInfo)
-	assert.Error(t, err, "failed to build payload: failed to execute query template: template: query:1:8: executing \"query\" at <eq .TableName>: error calling eq: missing argument for comparison")
+	_, err := opa.SelectFilters("pets", "p", userInfo)
+	assert.Error(t, err, "failed to build payload: failed to execute SELECT query template: template: query:1:8: executing \"query\" at <eq .TableName>: error calling eq: missing argument for comparison")
 
-	opa.QueryTemplate = "data.{{ .TableName }}.allow == true"
+	opa.SelectQueryTemplate = "data.{{ .TableName }}.allow == true"
 	opaHttpClient.DoSucceed = false
-	_, err = opa.GetFilters("pets", "p", userInfo)
+	_, err = opa.SelectFilters("pets", "p", userInfo)
 	assert.Error(t, err, "failed to query OPA: failed to execute request: failed to do request")
 }
 
@@ -465,4 +472,57 @@ func TestSetIndicesForCompiledTerms(t *testing.T) {
 	assert.Equal(t, cts[0].Index, 2)
 	assert.Equal(t, cts[1].Index, 0)
 	assert.Equal(t, cts[2].Index, 1)
+}
+
+func TestSetDDLCreateOPA(t *testing.T) {
+	opaHttpClient := &MockOPAHTTPClient{}
+	opa := NewOPASQL("opa-server", "data.{{ eq .TableName }}.allow == true", "data.ddl_create.allow == true", "data.ddl_update.allow == true", "data.ddl_delete.allow == true", "'", opaHttpClient)
+	assert.Assert(t, !opa.CreateAllowed())
+	err := opa.SetCreateAllowed(nil)
+	assert.Error(t, err, "failed to execute request: failed to do request")
+
+	opaHttpClient.DoSucceed = true
+	opaHttpClient.StatusCode = 200
+	opaHttpClient.Response = `{"result": {"queries": [[]]}}`
+	err = opa.SetCreateAllowed(nil)
+	assert.NilError(t, err)
+	assert.Assert(t, opa.CreateAllowed())
+}
+
+func TestSetDDLUpdateOPA(t *testing.T) {
+	opaHttpClient := &MockOPAHTTPClient{}
+	opa := NewOPASQL("opa-server", "data.{{ eq .TableName }}.allow == true", "data.ddl_create.allow == true", "data.ddl_update.allow == true", "data.ddl_delete.allow == true", "'", opaHttpClient)
+	assert.Assert(t, !opa.UpdateAllowed())
+	err := opa.SetUpdateAllowed(nil)
+	assert.Error(t, err, "failed to execute request: failed to do request")
+
+	opaHttpClient.DoSucceed = true
+	opaHttpClient.StatusCode = 200
+	opaHttpClient.Response = `{"result": {"queries": [[]]}}`
+	err = opa.SetUpdateAllowed(nil)
+	assert.NilError(t, err)
+	assert.Assert(t, opa.UpdateAllowed())
+}
+
+func TestSetDDLDeleteOPA(t *testing.T) {
+	opaHttpClient := &MockOPAHTTPClient{}
+	opa := NewOPASQL("opa-server", "data.{{ eq .TableName }}.allow == true", "data.ddl_create.allow == true", "data.ddl_update.allow == true", "data.ddl_delete.allow == true", "'", opaHttpClient)
+	assert.Assert(t, !opa.DeleteAllowed())
+	err := opa.SetDeleteAllowed(nil)
+	assert.Error(t, err, "failed to execute request: failed to do request")
+
+	opaHttpClient.DoSucceed = true
+	opaHttpClient.StatusCode = 200
+	opaHttpClient.Response = `{"result": {"queries": [[]]}}`
+	err = opa.SetDeleteAllowed(nil)
+	assert.NilError(t, err)
+	assert.Assert(t, opa.DeleteAllowed())
+}
+
+func TestGetDDLAllowedFail(t *testing.T) {
+	opaHttpClient := &MockOPAHTTPClient{}
+	opa := NewOPASQL("opa-server", "data.{{ eq .TableName }}.allow == true", "data.ddl_create.allow == true", "data.ddl_update.allow == true", "data.ddl_delete.allow == true", "'", opaHttpClient)
+
+	_, err := opa.getDDLAllowed("bad", nil)
+	assert.Error(t, err, "unexpected operation: bad")
 }

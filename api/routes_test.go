@@ -223,13 +223,33 @@ func TestApplyPermissionAgent(t *testing.T) {
 	assert.DeepEqual(t, w.headers.headers, []int{500})
 	assert.DeepEqual(t, w.buffer.buffer, []byte("{\"detail\":\"Failed to create SQL handler: unknown database type: bad\"}\n"))
 
-	// Fail to handle SQL
+	// Fail to handle set DDL
 	conf.DestinationDatabaseType = "postgres"
 	mockHttpClient = &MockHttpClient{
 		DoSucceed: true,
 		Response: []string{
 			"{\"access_token\":\"access\"}",
 			"{\"preferred_username\":\"test_user\"}",
+			"bad",
+		},
+		StatusCode: 200,
+	}
+	handler = ApplyPermissionAgent(log, conf, mockHttpClient)
+	w = MockResponseWriter{buffer: &MockBuffer{buffer: []byte{}}, headers: &MockHeaders{headers: []int{}}}
+	r = &http.Request{Body: &MockBody{Body: "{\"username\":\"test\", \"sql\":\"select * from pets\"}"}}
+	handler(w, r)
+	assert.DeepEqual(t, w.headers.headers, []int{500})
+	assert.DeepEqual(t, w.buffer.buffer, []byte("{\"detail\":\"Failed to set DDL: failed to unmarshal response body: invalid character 'b' looking for beginning of value\"}\n"))
+
+	// Fail to handle SQL
+	mockHttpClient = &MockHttpClient{
+		DoSucceed: true,
+		Response: []string{
+			"{\"access_token\":\"access\"}",
+			"{\"preferred_username\":\"test_user\"}",
+			"{}",
+			"{}",
+			"{}",
 			"{}",
 		},
 		StatusCode: 200,
@@ -247,6 +267,9 @@ func TestApplyPermissionAgent(t *testing.T) {
 		Response: []string{
 			"{\"access_token\":\"access\"}",
 			"{\"preferred_username\":\"test_user\"}",
+			"{}",
+			"{}",
+			"{}",
 			"{\"result\":{\"queries\":[[{\"terms\":[{\"type\":\"number\",\"value\":23},{\"type\":\"ref\",\"value\":[{\"type\":\"var\",\"value\":\"gte\"}]},{\"type\":\"ref\",\"value\":[{\"type\":\"var\",\"value\":\"data\"},{\"type\":\"string\",\"value\":\"tables\"},{\"type\":\"string\",\"value\":\"pets\"},{\"type\":\"string\",\"value\":\"owners\"}]}]}]]}}",
 		},
 		StatusCode: 200,
@@ -267,6 +290,9 @@ func TestApplyPermissionAgent(t *testing.T) {
 		Response: []string{
 			"{\"access_token\":\"access\"}",
 			"{\"preferred_username\":\"test_user\"}",
+			"{}",
+			"{}",
+			"{}",
 			"{\"result\":{\"queries\":[[{\"terms\":[{\"type\":\"number\",\"value\":23},{\"type\":\"ref\",\"value\":[{\"type\":\"var\",\"value\":\"gte\"}]},{\"type\":\"ref\",\"value\":[{\"type\":\"var\",\"value\":\"data\"},{\"type\":\"string\",\"value\":\"tables\"},{\"type\":\"string\",\"value\":\"pets\"},{\"type\":\"string\",\"value\":\"owners\"}]}]}]]}}",
 		},
 		StatusCode: 200,

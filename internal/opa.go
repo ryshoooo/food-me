@@ -225,22 +225,73 @@ type TemplateContext struct {
 }
 
 type OPASQL struct {
-	Address          string
-	QueryTemplate    string
-	StringEscapeChar string
-	httpClient       IHttpClient
+	Address             string
+	SelectQueryTemplate string
+	CreateQuery         string
+	UpdateQuery         string
+	DeleteQuery         string
+	StringEscapeChar    string
+	httpClient          IHttpClient
+
+	allowedCreate bool
+	allowedUpdate bool
+	allowedDelete bool
 }
 
 func NewOPASQL(
-	address, queryTemplate, stringEscapeChar string,
+	address, selectQueryTemplate, createQuery, updateQuery, deleteQuery, stringEscapeChar string,
 	httpClient IHttpClient,
 ) *OPASQL {
 	return &OPASQL{
-		Address:          address,
-		QueryTemplate:    queryTemplate,
-		httpClient:       httpClient,
-		StringEscapeChar: stringEscapeChar,
+		Address:             address,
+		SelectQueryTemplate: selectQueryTemplate,
+		CreateQuery:         createQuery,
+		UpdateQuery:         updateQuery,
+		DeleteQuery:         deleteQuery,
+		httpClient:          httpClient,
+		StringEscapeChar:    stringEscapeChar,
 	}
+}
+
+func (o *OPASQL) SetCreateAllowed(userInfo map[string]interface{}) error {
+	allowed, err := o.getDDLAllowed("create", userInfo)
+	if err != nil {
+		return err
+	}
+	o.allowedCreate = allowed
+	return nil
+}
+
+func (o *OPASQL) SetUpdateAllowed(userInfo map[string]interface{}) error {
+	allowed, err := o.getDDLAllowed("update", userInfo)
+	if err != nil {
+		return err
+	}
+	o.allowedUpdate = allowed
+	return nil
+}
+
+func (o *OPASQL) SetDeleteAllowed(userInfo map[string]interface{}) error {
+	allowed, err := o.getDDLAllowed("delete", userInfo)
+	if err != nil {
+		return err
+	}
+	o.allowedDelete = allowed
+	return nil
+}
+
+func (o *OPASQL) getDDLAllowed(operation string, userInfo map[string]interface{}) (bool, error) {
+	payload, err := o.BuildPayload(operation, "", userInfo)
+	if err != nil {
+		return false, err
+	}
+
+	resp, err := o.Query(payload)
+	if err != nil {
+		return false, err
+	}
+
+	return resp.IsAllowed(), nil
 }
 
 func (o *OPASQL) Query(payload *CompilePayload) (*CompileResponse, error) {
@@ -278,39 +329,70 @@ func (o *OPASQL) Query(payload *CompilePayload) (*CompileResponse, error) {
 	return compileResp, nil
 }
 
-func (o *OPASQL) BuildPayload(tableName string, userInfo map[string]interface{}) (*CompilePayload, error) {
-	ctx := &TemplateContext{TableName: tableName}
+func (o *OPASQL) BuildPayload(operation, tableName string, userInfo map[string]interface{}) (*CompilePayload, error) {
+	var query string
+	switch operation {
+	case "create":
+		query = o.CreateQuery
+	case "update":
+		query = o.UpdateQuery
+	case "delete":
+		query = o.DeleteQuery
+	case "select":
+		ctx := &TemplateContext{TableName: tableName}
 
-	qtmpl, _ := template.New("query").Parse(o.QueryTemplate)
-	var qrs bytes.Buffer
-	err := qtmpl.Execute(&qrs, ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute query template: %w", err)
+		qtmpl, _ := template.New("query").Parse(o.SelectQueryTemplate)
+		var qrs bytes.Buffer
+		err := qtmpl.Execute(&qrs, ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to execute SELECT query template: %w", err)
+		}
+
+		query = qrs.String()
+	default:
+		return nil, fmt.Errorf("unexpected operation: %s", operation)
 	}
 
-	return &CompilePayload{Query: qrs.String(), Unknowns: []string{"data.tables"}, Input: CompilePayloadInput{UserInfo: userInfo}}, nil
+	return &CompilePayload{Query: query, Unknowns: []string{"data.tables"}, Input: CompilePayloadInput{UserInfo: userInfo}}, nil
 }
 
-func (o *OPASQL) GetFilters(tableName, tableAlias string, userInfo map[string]interface{}) (string, error) {
-	payload, err := o.BuildPayload(tableName, userInfo)
+func (o *OPASQL) SelectFilters(tableName, tableAlias string, userInfo map[string]interface{}) (*SelectFilters, error) {
+	payload, err := o.BuildPayload("select", tableName, userInfo)
 	if err != nil {
-		return "", fmt.Errorf("failed to build payload: %w", err)
+		return nil, fmt.Errorf("failed to build payload: %w", err)
 	}
 
 	resp, err := o.Query(payload)
 	if err != nil {
-		return "", fmt.Errorf("failed to query OPA: %w", err)
+		return nil, fmt.Errorf("failed to query OPA: %w", err)
 	}
 
 	if resp.IsAllowed() {
-		return "", nil
+		return &SelectFilters{WhereFilters: []string{}, JoinFilters: []*JoinFilter{}}, nil
 	}
 
 	if resp.IsDisallowed() {
-		return "", fmt.Errorf("permission denied to access table %s", tableName)
+		return nil, fmt.Errorf("permission denied to access table %s", tableName)
 	}
 
-	return resp.Compile(o.StringEscapeChar, tableName, tableAlias)
+	wfs, err := resp.Compile(o.StringEscapeChar, tableName, tableAlias)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile response: %w", err)
+	}
+
+	return &SelectFilters{WhereFilters: []string{wfs}, JoinFilters: []*JoinFilter{}}, nil
+}
+
+func (o *OPASQL) CreateAllowed() bool {
+	return o.allowedCreate
+}
+
+func (o *OPASQL) UpdateAllowed() bool {
+	return o.allowedUpdate
+}
+
+func (o *OPASQL) DeleteAllowed() bool {
+	return o.allowedDelete
 }
 
 func setIndicesForCompiledTerms(compiledTerms []*CompiledTerm) error {
