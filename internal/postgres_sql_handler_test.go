@@ -19,6 +19,7 @@ type FailingAgent struct{}
 type BadFiltersAgent struct{}
 type DummyAgent struct {
 	Filters       []ColFilter
+	JoinFilters   []JoinFilter
 	create        bool
 	update        bool
 	delete        bool
@@ -36,7 +37,12 @@ func (d *DummyAgent) SelectFilters(tableName string, tableAlias string, userInfo
 			res = append(res, fmt.Sprintf("%s %s %s", filter.ColumnName, filter.Operator, filter.ColumnValue))
 		}
 	}
-	return &SelectFilters{WhereFilters: res, JoinFilters: []*JoinFilter{}}, nil
+	jres := []*JoinFilter{}
+	for _, filter := range d.JoinFilters {
+		jres = append(jres, &JoinFilter{TableName: filter.TableName, Conditions: filter.Conditions})
+	}
+
+	return &SelectFilters{WhereFilters: res, JoinFilters: jres}, nil
 }
 
 func (d *DummyAgent) CreateAllowed() bool {
@@ -180,6 +186,45 @@ func TestHandleSimpleSQL(t *testing.T) {
 	res, err := handler.Handle(sql, nil)
 	assert.NilError(t, err)
 	assert.Equal(t, res, "SELECT * FROM tablename WHERE (age >= 18) AND (affiliation != 'royalty')")
+}
+
+func TestHandleSimpleJoinSQL(t *testing.T) {
+	log := logrus.StandardLogger()
+	sql := "SELECT * FROM tablename"
+	agent := &DummyAgent{
+		JoinFilters: []JoinFilter{
+			{TableName: "othertable", Conditions: "tablename.id = othertable.id AND tablename.secondid = othertable.secondid"},
+			{TableName: "thirdtable", Conditions: "tablename.id = thirdtable.id AND tablename.thirdid = thirdtable.thirdid"},
+		},
+	}
+	handler := NewPostgresSQLHandler(log, agent)
+	res, err := handler.Handle(sql, nil)
+	assert.NilError(t, err)
+	assert.Equal(t, res, "SELECT * FROM tablename INNER JOIN othertable ON (tablename.id = othertable.id) AND (tablename.secondid = othertable.secondid) INNER JOIN thirdtable ON (tablename.id = thirdtable.id) AND (tablename.thirdid = thirdtable.thirdid)")
+
+	// bad condition
+	agent = &DummyAgent{
+		JoinFilters: []JoinFilter{{TableName: "othertable", Conditions: "just a bad condition"}},
+	}
+	handler = NewPostgresSQLHandler(log, agent)
+	_, err = handler.Handle(sql, nil)
+	assert.Error(t, err, "failed to parse join statement for table tablename: at or near \"a\": syntax error")
+
+	// Both where and filter conditions together
+	agent = &DummyAgent{
+		JoinFilters: []JoinFilter{
+			{TableName: "othertable", Conditions: "tablename.id = othertable.id AND tablename.secondid = othertable.secondid"},
+			{TableName: "thirdtable", Conditions: "tablename.id = thirdtable.id AND tablename.thirdid = thirdtable.thirdid"},
+		},
+		Filters: []ColFilter{
+			{ColumnName: "age", ColumnValue: "18", Operator: ">="},
+			{ColumnName: "affiliation", ColumnValue: "'royalty'", Operator: "!="},
+		},
+	}
+	handler = NewPostgresSQLHandler(log, agent)
+	res, err = handler.Handle(sql, nil)
+	assert.NilError(t, err)
+	assert.Equal(t, res, "SELECT * FROM tablename INNER JOIN othertable ON (tablename.id = othertable.id) AND (tablename.secondid = othertable.secondid) INNER JOIN thirdtable ON (tablename.id = thirdtable.id) AND (tablename.thirdid = thirdtable.thirdid) WHERE (age >= 18) AND (affiliation != 'royalty')")
 }
 
 func TestHandleAllowSQL(t *testing.T) {
