@@ -26,6 +26,7 @@ type DummyAgent struct {
 	setCreateFail bool
 	setUpdateFail bool
 	setDeleteFail bool
+	onlyForTable  string
 }
 
 func (d *DummyAgent) SelectFilters(tableName string, tableAlias string, userInfo map[string]interface{}) (*SelectFilters, error) {
@@ -42,7 +43,11 @@ func (d *DummyAgent) SelectFilters(tableName string, tableAlias string, userInfo
 		jres = append(jres, &JoinFilter{TableName: filter.TableName, Conditions: filter.Conditions})
 	}
 
-	return &SelectFilters{WhereFilters: res, JoinFilters: jres}, nil
+	if d.onlyForTable == "" || d.onlyForTable == tableName {
+		return &SelectFilters{WhereFilters: res, JoinFilters: jres}, nil
+	} else {
+		return &SelectFilters{WhereFilters: []string{}, JoinFilters: []*JoinFilter{}}, nil
+	}
 }
 
 func (d *DummyAgent) CreateAllowed() bool {
@@ -186,6 +191,22 @@ func TestHandleSimpleSQL(t *testing.T) {
 	res, err := handler.Handle(sql, nil)
 	assert.NilError(t, err)
 	assert.Equal(t, res, "SELECT * FROM tablename WHERE (age >= 18) AND (affiliation != 'royalty')")
+}
+
+func TestHandleExistsSQL(t *testing.T) {
+	log := logrus.StandardLogger()
+	sql := "SELECT * FROM tablename"
+	agent := &DummyAgent{
+		Filters: []ColFilter{
+			{ColumnName: "exists (select 1 from othertable where ((tablename.id = othertable.id) AND (othertable.othercolumn", ColumnValue: "18)))", Operator: ">="},
+			{ColumnName: "affiliation", ColumnValue: "'royalty'", Operator: "!="},
+		},
+		onlyForTable: "tablename",
+	}
+	handler := NewPostgresSQLHandler(log, agent)
+	res, err := handler.Handle(sql, nil)
+	assert.NilError(t, err)
+	assert.Equal(t, res, "SELECT * FROM tablename WHERE EXISTS (SELECT 1 FROM othertable WHERE ((tablename.id = othertable.id) AND (othertable.othercolumn >= 18))) AND (affiliation != 'royalty')")
 }
 
 func TestHandleSimpleJoinSQL(t *testing.T) {
