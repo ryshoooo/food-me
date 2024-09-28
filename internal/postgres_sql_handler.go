@@ -81,7 +81,7 @@ func HandleTables(ctx interface{}, node interface{}) (stop bool) {
 			return true
 		}
 	case *tree.SelectClause:
-		for _, table := range node.From.Tables {
+		for tableIdx, table := range node.From.Tables {
 			tbs := getTableNamesAndAliases(table)
 			for _, tb := range tbs {
 				if _, ok := h.withTables[tb.TableName]; ok {
@@ -119,10 +119,21 @@ func HandleTables(ctx interface{}, node interface{}) (stop bool) {
 
 				if len(filters.JoinFilters) > 0 {
 					h.Logger.Debugf("Found join filters for table %s: %v", tb.TableName, filters.JoinFilters)
-					h.Logger.Error("join filters are not supported yet, sorry!")
-					h.handleFailed = true
-					h.handleError = fmt.Errorf("join filters are not supported yet, sorry")
-					return true
+					joinSql := fmt.Sprintf("SELECT * FROM %s", tb.TableName)
+					for _, f := range filters.JoinFilters {
+						joinSql = fmt.Sprintf("%s INNER JOIN %s ON %s", joinSql, f.TableName, f.Conditions)
+					}
+
+					pst, err := parser.Parse(joinSql)
+					if err != nil {
+						h.Logger.Errorf("failed to parse join statement for table %s: %v", tb.TableName, err)
+						h.handleFailed = true
+						h.handleError = fmt.Errorf("failed to parse join statement for table %s: %v", tb.TableName, err)
+						return true
+					}
+
+					newTblExpr := pst[0].AST.(*tree.Select).Select.(*tree.SelectClause).From.Tables[0]
+					node.From.Tables[tableIdx] = newTblExpr
 				}
 			}
 		}

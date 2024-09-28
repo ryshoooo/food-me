@@ -44,16 +44,27 @@ func (c *CompileResponse) Compile(stringEscapeChar, tableName, tableAlias string
 
 	for qidx, query := range c.Result.Queries {
 		iresp := make([]string, len(query))
+		allExtraTables := []string{}
 
 		for qqidx, iq := range query {
 			cnd, err := iq.Compile(stringEscapeChar, tableName, tableAlias)
 			if err != nil {
 				return "", fmt.Errorf("failed to compile response: %w", err)
 			}
-			iresp[qqidx] = fmt.Sprintf("(%s)", cnd)
+			iresp[qqidx] = fmt.Sprintf("(%s)", cnd.Value)
+
+			for _, et := range cnd.ExtraTables {
+				if !contains(allExtraTables, et) {
+					allExtraTables = append(allExtraTables, et)
+				}
+			}
 		}
 
-		resp[qidx] = fmt.Sprintf("(%s)", strings.Join(iresp, " AND "))
+		if len(allExtraTables) > 0 {
+			resp[qidx] = fmt.Sprintf("(exists (select 1 from %s where (%s)))", strings.Join(allExtraTables, ", "), strings.Join(iresp, " AND "))
+		} else {
+			resp[qidx] = fmt.Sprintf("(%s)", strings.Join(iresp, " AND "))
+		}
 	}
 
 	return strings.Join(resp, " OR "), nil
@@ -69,34 +80,41 @@ type CompileResponseQuery struct {
 	Terms   []CompileResponseTerm `json:"terms"`
 }
 
-func (c *CompileResponseQuery) Compile(stringEscapeChart, tableName, tableAlias string) (string, error) {
+func (c *CompileResponseQuery) Compile(stringEscapeChart, tableName, tableAlias string) (*CompiledQuery, error) {
 	if len(c.Terms) != 3 {
-		return "", fmt.Errorf("unexpected number of terms in query: %d", len(c.Terms))
+		return nil, fmt.Errorf("unexpected number of terms in query: %d", len(c.Terms))
 	}
 
 	ra := make([]*CompiledTerm, len(c.Terms))
 	for idx, term := range c.Terms {
 		ct, err := term.Compile(stringEscapeChart, tableName, tableAlias)
 		if err != nil {
-			return "", fmt.Errorf("failed to compile query: %w", err)
+			return nil, fmt.Errorf("failed to compile query: %w", err)
 		}
 		ra[idx] = ct
 	}
 
 	_ = setIndicesForCompiledTerms(ra)
 	result := make([]string, 3)
+	extraTables := []string{}
 	for _, compiledTerm := range ra {
 		if result[compiledTerm.Index] != "" {
-			return "", fmt.Errorf("index already used: %d (value %s)", compiledTerm.Index, compiledTerm.Value)
+			return nil, fmt.Errorf("index already used: %d (value %s)", compiledTerm.Index, compiledTerm.Value)
 		}
 		result[compiledTerm.Index] = compiledTerm.Value
+		if compiledTerm.IsTableReference {
+			extraTableName := strings.Split(compiledTerm.Value, ".")[0]
+			if extraTableName != tableName && extraTableName != tableAlias {
+				extraTables = append(extraTables, extraTableName)
+			}
+		}
 	}
 
 	f := strings.Join(result, " ")
 	if c.Negated {
-		return fmt.Sprintf("NOT (%s)", f), nil
+		return &CompiledQuery{Value: fmt.Sprintf("NOT (%s)", f), ExtraTables: extraTables}, nil
 	} else {
-		return f, nil
+		return &CompiledQuery{Value: f, ExtraTables: extraTables}, nil
 	}
 }
 
@@ -217,6 +235,11 @@ type CompiledTerm struct {
 	IsValue          bool
 	IsUnknown        bool
 	Index            int
+}
+
+type CompiledQuery struct {
+	Value       string
+	ExtraTables []string
 }
 
 // Template context

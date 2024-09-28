@@ -231,16 +231,79 @@ func TestCompileResponseQuery(t *testing.T) {
 
 	result, err := rq.Compile("'", "tablename", "")
 	assert.NilError(t, err)
-	assert.Equal(t, result, "tablename.columnname = true")
+	assert.Equal(t, result.Value, "tablename.columnname = true")
+	assert.Equal(t, len(result.ExtraTables), 0)
 
 	result, err = rq.Compile("'", "tablename", "t")
 	assert.NilError(t, err)
-	assert.Equal(t, result, "t.columnname = true")
+	assert.Equal(t, result.Value, "t.columnname = true")
+	assert.Equal(t, len(result.ExtraTables), 0)
 
 	rq.Negated = true
 	result, err = rq.Compile("'", "tablename", "t")
 	assert.NilError(t, err)
-	assert.Equal(t, result, "NOT (t.columnname = true)")
+	assert.Equal(t, result.Value, "NOT (t.columnname = true)")
+	assert.Equal(t, len(result.ExtraTables), 0)
+}
+
+func TestCompileResponseQueryMultipleTables(t *testing.T) {
+	rq := CompileResponseQuery{Index: 0, Negated: false, Terms: []CompileResponseTerm{
+		{Type: "ref", Value: []interface{}{
+			map[string]interface{}{"type": "var", "value": "data"},
+			map[string]interface{}{"type": "string", "value": "tables"},
+			map[string]interface{}{"type": "string", "value": "secondtablename"},
+			map[string]interface{}{"type": "string", "value": "id"},
+		}},
+		{Type: "ref", Value: []interface{}{map[string]interface{}{"type": "var", "value": "eq"}}},
+		{Type: "ref", Value: []interface{}{
+			map[string]interface{}{"type": "var", "value": "data"},
+			map[string]interface{}{"type": "string", "value": "tables"},
+			map[string]interface{}{"type": "string", "value": "tablename"},
+			map[string]interface{}{"type": "string", "value": "id"},
+		}},
+	}}
+
+	result, err := rq.Compile("'", "tablename", "")
+	assert.NilError(t, err)
+	assert.Equal(t, result.Value, "tablename.id = secondtablename.id")
+	assert.Equal(t, len(result.ExtraTables), 1)
+	assert.Equal(t, result.ExtraTables[0], "secondtablename")
+
+	result, err = rq.Compile("'", "tablename", "t")
+	assert.NilError(t, err)
+	assert.Equal(t, result.Value, "t.id = secondtablename.id")
+	assert.Equal(t, len(result.ExtraTables), 1)
+	assert.Equal(t, result.ExtraTables[0], "secondtablename")
+
+	rq.Negated = true
+	result, err = rq.Compile("'", "tablename", "t")
+	assert.NilError(t, err)
+	assert.Equal(t, result.Value, "NOT (t.id = secondtablename.id)")
+	assert.Equal(t, len(result.ExtraTables), 1)
+	assert.Equal(t, result.ExtraTables[0], "secondtablename")
+
+	rq.Negated = false
+	result, err = rq.Compile("'", "othertable", "")
+	assert.NilError(t, err)
+	assert.Equal(t, result.Value, "tablename.id = secondtablename.id")
+	assert.Equal(t, len(result.ExtraTables), 2)
+	assert.Equal(t, result.ExtraTables[0], "secondtablename")
+	assert.Equal(t, result.ExtraTables[1], "tablename")
+
+	result, err = rq.Compile("'", "othertable", "o")
+	assert.NilError(t, err)
+	assert.Equal(t, result.Value, "tablename.id = secondtablename.id")
+	assert.Equal(t, len(result.ExtraTables), 2)
+	assert.Equal(t, result.ExtraTables[0], "secondtablename")
+	assert.Equal(t, result.ExtraTables[1], "tablename")
+
+	rq.Negated = true
+	result, err = rq.Compile("'", "othertable", "o")
+	assert.NilError(t, err)
+	assert.Equal(t, result.Value, "NOT (tablename.id = secondtablename.id)")
+	assert.Equal(t, len(result.ExtraTables), 2)
+	assert.Equal(t, result.ExtraTables[0], "secondtablename")
+	assert.Equal(t, result.ExtraTables[1], "tablename")
 }
 
 func TestCompileResponseQueryEdgeCases(t *testing.T) {
@@ -301,6 +364,10 @@ func TestCompileResponse(t *testing.T) {
 	res, err := cr.Compile("'", "tablename", "t")
 	assert.NilError(t, err)
 	assert.Equal(t, res, "((t.columnname1 = 'val1') AND (NOT (t.columnname2 = 'val2'))) OR ((t.columnname3 >= 12))")
+
+	res, err = cr.Compile("'", "othertable", "o")
+	assert.NilError(t, err)
+	assert.Equal(t, res, "(exists (select 1 from tablename where ((tablename.columnname1 = 'val1') AND (NOT (tablename.columnname2 = 'val2'))))) OR (exists (select 1 from tablename where ((tablename.columnname3 >= 12))))")
 }
 
 func TestCompileResponseEdge(t *testing.T) {

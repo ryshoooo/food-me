@@ -1,4 +1,4 @@
-FROM docker.io/library/golang:1.22-alpine as builder
+FROM docker.io/library/golang:1.23-alpine as builder
 
 # Setup
 RUN mkdir -p /go/src/github.com/ryshoooo/food-me
