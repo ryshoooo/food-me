@@ -12,6 +12,8 @@ func NewPermissionAgent(conf *Configuration, httpClient IHttpClient) IPermission
 			conf.PermissionAgentOPAStringEscapeCharacter,
 			httpClient,
 		)
+	case "http":
+		return NewHTTPPermissionAgent(conf.PermissionAgentHTTPDDLEndpoint, conf.PermissionAgentHTTPSelectEndpoint, httpClient)
 	default:
 		return nil
 	}

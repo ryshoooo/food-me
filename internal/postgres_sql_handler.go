@@ -21,13 +21,13 @@ type PostgresSQLHandler struct {
 }
 
 type SelectFilters struct {
-	WhereFilters []string
-	JoinFilters  []*JoinFilter
+	WhereFilters []string      `json:"whereFilters"`
+	JoinFilters  []*JoinFilter `json:"joinFilters"`
 }
 
 type JoinFilter struct {
-	TableName  string
-	Conditions string
+	TableName  string `json:"tableName"`
+	Conditions string `json:"conditions"`
 }
 
 func NewPostgresSQLHandler(logger *logrus.Logger, pAgent IPermissionAgent) ISQLHandler {
