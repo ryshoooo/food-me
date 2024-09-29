@@ -10,5 +10,10 @@ allow if {
 
 allow if {
 	input.userinfo
+	not input.userinfo.groups
+}
+
+allow if {
+	input.userinfo
 	some data.tables.petsaccessgrouplist.group_id in input.userinfo.groups
 }
