@@ -1,0 +1,21 @@
+name: pushy
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: "0"
+      - uses: docker-practice/actions-setup-docker@master
+      - name: docker build
+        run: docker build -f Dockerfile -t docker.io/ryshoooo/food-me:${{ github.ref_name }}
+      - name: docker push
+        run: |
+            docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+            docker push docker.io/ryshoooo/food-me:${{ github.ref_name }}
