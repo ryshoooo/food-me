@@ -112,6 +112,26 @@ class Pets(Base):
     deleted = sqlalchemy.Column(sqlalchemy.Boolean)
 
 
+class PetsAccess(Base):
+    __tablename__ = "petsaccess"
+    pet_id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
+    type = sqlalchemy.Column(sqlalchemy.String)
+    userlist_id = sqlalchemy.Column(sqlalchemy.Integer)
+    grouplist_id = sqlalchemy.Column(sqlalchemy.Integer)
+
+
+class PetsAccessUsers(Base):
+    __tablename__ = "petsaccessuserlist"
+    userlist_id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
+    user_id = sqlalchemy.Column(sqlalchemy.String, primary_key=True)
+
+
+class PetsAccessGroups(Base):
+    __tablename__ = "petsaccessgrouplist"
+    grouplist_id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
+    group_id = sqlalchemy.Column(sqlalchemy.String, primary_key=True)
+
+
 Base.metadata.create_all(engine)
 SLocal = sessionmaker(bind=engine)
 db = SLocal()
@@ -231,6 +251,12 @@ db = SLocal()
 for pet in db.query(Pets).all():
     print(pet.__dict__)
 
+print(
+    requests.post(
+        "http://localhost:10000/permissionapply",
+        json={"username": user, "sql": str(db.query(Pets))},
+    ).json()
+)
 
 # What if admin user is a killer?
 admin.group_user_add(

@@ -44,30 +44,28 @@ allowed if {
 	not is_pet_hidden
 }
 
-# allowed if {
-# 	data.tables.pets.pet_id = data.tables.petsaccess.pet_id
-# 	data.tables.petsaccess.type = "public"
-# }
+allowed if {
+	data.tables.pets.id = data.tables.petsaccess.pet_id
+	data.tables.petsaccess.type = "public"
+}
 
-# allowed if {
-# 	data.tables.pets.pet_id = data.tables.petsaccess.pet_id
-# 	data.tables.petsaccess.type = "logged_in"
-# 	input.userinfo
-# }
+allowed if {
+	data.tables.pets.id = data.tables.petsaccess.pet_id
+	data.tables.petsaccess.type = "logged_in"
+	input.userinfo
+}
 
-# allowed if {
-# 	data.tables.pets.pet_id = data.tables.petsaccess.pet_id
-# 	data.tables.petsaccess.type = "userlist"
-# 	data.tables.petsaccess.userlist_id = data.tables.petsacessuserlist.userlist_id
-# 	data.tables.petsacessuserlist.user_id = input.userinfo.preferred_username
-# }
+allowed if {
+	data.tables.pets.id = data.tables.petsaccess.pet_id
+	data.tables.petsaccess.type = "userlist"
+	data.tables.petsaccess.userlist_id = data.tables.petsaccessuserlist.userlist_id
+}
 
-# allowed if {
-# 	data.tables.pets.pet_id = data.tables.petsaccess.pet_id
-# 	data.tables.petsaccess.type = "grouplist"
-# 	data.tables.petsaccess.grouplist_id = data.tables.petsacessgrouplist.grouplist_id
-# 	some data.tables.petsacessgrouplist.group_id in input.userinfo.groups
-# }
+allowed if {
+	data.tables.pets.id = data.tables.petsaccess.pet_id
+	data.tables.petsaccess.type = "grouplist"
+	data.tables.petsaccess.grouplist_id = data.tables.petsaccessgrouplist.grouplist_id
+}
 
 is_pet_killer if {
 	"killer" in input.userinfo.groups
