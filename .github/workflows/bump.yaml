@@ -19,6 +19,7 @@ jobs:
           node-version: 20
       - name: determine-version
         run: |
+          export GH_TOKEN=${{ secrets.PAT_TOKEN }}
           VERSION=$(npx semantic-release --branches main --dry-run | { grep -i 'the next release version is' || test $? = 1; } | sed -E 's/.* ([[:digit:].]+)$/\1/')
           echo "VERSION=$VERSION" >> $GITHUB_ENV
         id: version
