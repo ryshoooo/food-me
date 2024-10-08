@@ -47,7 +47,7 @@ type Configuration struct {
 
 	// Permission Agents
 	PermissionAgentEnabled bool   `long:"permission-agent-enabled" env:"PERMISSION_AGENT_ENABLED" description:"Enable permission agent for handling SQL queries"`
-	PermissionAgentType    string `long:"permission-agent-type" env:"PERMISSION_AGENT_TYPE" choice:"opa" description:"Permission agent type"`
+	PermissionAgentType    string `long:"permission-agent-type" env:"PERMISSION_AGENT_TYPE" choice:"opa" choice:"http" description:"Permission agent type"`
 
 	// OPA Permission Agent Configuration
 	PermissionAgentOPAURL                   string `long:"permission-agent-opa-url" env:"PERMISSION_AGENT_OPA_URL" description:"URL endpoint for OPA server"`
@@ -56,6 +56,10 @@ type Configuration struct {
 	PermissionAgentOPAUpdateQuery           string `long:"permission-agent-opa-update-query" env:"PERMISSION_AGENT_OPA_UPDATE_QUERY" description:"OPA query for UPDATE operations" default:"data.ddl_update.allow == true"`
 	PermissionAgentOPADeleteQuery           string `long:"permission-agent-opa-delete-query" env:"PERMISSION_AGENT_OPA_DELETE_QUERY" description:"OPA query for DELETE operations" default:"data.ddl_delete.allow == true"`
 	PermissionAgentOPAStringEscapeCharacter string `long:"permission-agent-opa-string-escape-character" env:"PERMISSION_AGENT_OPA_STRING_ESCAPE_CHARACTER" description:"Wrap the resulting OPA string fields with this characters" default:"'"`
+
+	// HTTP Permission Agent Configuration
+	PermissionAgentHTTPDDLEndpoint    string `long:"permission-agent-http-ddl-endpoint" env:"PERMISSION_AGENT_HTTP_DDL_ENDPOINT" description:"HTTP endpoint for DDL operations"`
+	PermissionAgentHTTPSelectEndpoint string `long:"permission-agent-http-select-endpoint" env:"PERMISSION_AGENT_HTTP_SELECT_ENDPOINT" description:"HTTP endpoint for SELECT operations"`
 
 	// TLS
 	ServerTLSEnabled            bool   `long:"server-tls-enabled" env:"SERVER_TLS_ENABLED" description:"Enable TLS for the server"`
