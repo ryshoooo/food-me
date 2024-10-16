@@ -43,6 +43,8 @@ func TestNewConfigurationDefaults(t *testing.T) {
 	assert.Equal(t, c.PermissionAgentOPAUpdateQuery, "data.ddl_update.allow == true")
 	assert.Equal(t, c.PermissionAgentOPADeleteQuery, "data.ddl_delete.allow == true")
 	assert.Equal(t, c.PermissionAgentOPAStringEscapeCharacter, "'")
+	assert.Equal(t, c.PermissionAgentHTTPDDLEndpoint, "")
+	assert.Equal(t, c.PermissionAgentHTTPSelectEndpoint, "")
 	assert.Equal(t, c.ServerTLSEnabled, false)
 	assert.Equal(t, c.ServerTLSCertificateFile, "")
 	assert.Equal(t, c.ServerTLSCertificateKeyFile, "")
@@ -84,6 +86,8 @@ func TestNewConfigurationFull(t *testing.T) {
 		"--permission-agent-opa-update-query", "update query",
 		"--permission-agent-opa-delete-query", "delete query",
 		"--permission-agent-opa-string-escape-character", "''",
+		"--permission-agent-http-ddl-endpoint", "http://ddl",
+		"--permission-agent-http-select-endpoint", "http://select",
 		"--oidc-assume-user-session",
 		"--oidc-assume-user-session-username-claim", "db_role",
 		"--oidc-assume-user-session-allow-escape",
@@ -128,6 +132,8 @@ func TestNewConfigurationFull(t *testing.T) {
 	assert.Equal(t, c.PermissionAgentOPAUpdateQuery, "update query")
 	assert.Equal(t, c.PermissionAgentOPADeleteQuery, "delete query")
 	assert.Equal(t, c.PermissionAgentOPAStringEscapeCharacter, "''")
+	assert.Equal(t, c.PermissionAgentHTTPDDLEndpoint, "http://ddl")
+	assert.Equal(t, c.PermissionAgentHTTPSelectEndpoint, "http://select")
 	assert.Equal(t, c.OIDCAssumeUserSession, true)
 	assert.Equal(t, c.OIDCAssumeUserSessionUsernameClaim, "db_role")
 	assert.Equal(t, c.OIDCAssumeUserSessionAllowEscape, true)

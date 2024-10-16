@@ -20,16 +20,6 @@ type PostgresSQLHandler struct {
 	userInfo     map[string]interface{}
 }
 
-type SelectFilters struct {
-	WhereFilters []string
-	JoinFilters  []*JoinFilter
-}
-
-type JoinFilter struct {
-	TableName  string
-	Conditions string
-}
-
 func NewPostgresSQLHandler(logger *logrus.Logger, pAgent IPermissionAgent) ISQLHandler {
 	return &PostgresSQLHandler{Logger: logger, PermissionAgent: pAgent, withTables: make(map[string]string)}
 }
