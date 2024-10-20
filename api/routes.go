@@ -113,10 +113,10 @@ func ApplyPermissionAgent(logger *logrus.Logger, conf *foodme.Configuration, htt
 		}
 
 		// Establish sql handler
-		agent := foodme.NewPermissionAgent(conf, httpClient)
-		if agent == nil {
+		agent, err := foodme.NewPermissionAgent(conf, httpClient)
+		if err != nil {
 			logger.WithFields(logrus.Fields{"component": "api"}).Errorf("[%p] Failed to create permission agent", r)
-			HandleErrorResponse(logger, w, http.StatusInternalServerError, "Failed to create permission agent")
+			HandleErrorResponse(logger, w, http.StatusInternalServerError, "Failed to create permission agent: "+err.Error())
 			return
 		}
 

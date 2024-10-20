@@ -21,11 +21,10 @@ func GetHandler(conf *Configuration, logger *logrus.Logger, httpClient IHttpClie
 	}
 
 	var sqlHandler ISQLHandler
-	var err error
 	if conf.PermissionAgentEnabled {
-		pAgent := NewPermissionAgent(conf, httpClient)
-		if pAgent == nil {
-			return nil, fmt.Errorf("unsupported permission agent")
+		pAgent, err := NewPermissionAgent(conf, httpClient)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create permission agent: %w", err)
 		}
 		sqlHandler, err = NewSQLHandler(conf.DestinationDatabaseType, logger, pAgent)
 		if err != nil {

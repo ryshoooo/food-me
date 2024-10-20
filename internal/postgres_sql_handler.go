@@ -20,7 +20,7 @@ type PostgresSQLHandler struct {
 	userInfo     map[string]interface{}
 }
 
-func NewPostgresSQLHandler(logger *logrus.Logger, pAgent IPermissionAgent) ISQLHandler {
+func NewPostgresSQLHandler(logger *logrus.Logger, pAgent IPermissionAgent) *PostgresSQLHandler {
 	return &PostgresSQLHandler{Logger: logger, PermissionAgent: pAgent, withTables: make(map[string]string)}
 }
 
