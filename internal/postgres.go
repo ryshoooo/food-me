@@ -812,10 +812,8 @@ func (h *PostgresHandler) proxyDownstream() {
 		}
 	} else {
 		_, err := io.Copy(h.client, h.upstream)
-		if err != nil {
-			if err != io.EOF {
-				h.Logger.Errorf("Error copying from upstream to client: %v", err)
-			}
+		if err != nil && err != io.EOF {
+			h.Logger.Errorf("Error copying from upstream to client: %v", err)
 		}
 	}
 }

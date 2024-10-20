@@ -10,11 +10,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func HandleErrorResponse(w http.ResponseWriter, statusCode int, message string) {
+func HandleErrorResponse(logger *logrus.Logger, w http.ResponseWriter, statusCode int, message string) {
 	w.WriteHeader(statusCode)
 	err := json.NewEncoder(w).Encode(&ApiError{Detail: message})
 	if err != nil {
-		panic(err)
+		logger.WithFields(logrus.Fields{"component": "api"}).Errorf("Failed to encode error response: %s", err)
 	}
 }
 
@@ -26,7 +26,7 @@ func CreateNewConnection(logger *logrus.Logger, usernameLifetime int) http.Handl
 		err := json.NewDecoder(r.Body).Decode(data)
 		if err != nil {
 			logger.WithFields(logrus.Fields{"component": "api"}).Errorf("[%p] %s", r, err)
-			HandleErrorResponse(w, http.StatusBadRequest, "Failed to parse request")
+			HandleErrorResponse(logger, w, http.StatusBadRequest, "Failed to parse request")
 			return
 		}
 		id := uuid.New().String()
@@ -34,7 +34,7 @@ func CreateNewConnection(logger *logrus.Logger, usernameLifetime int) http.Handl
 		w.WriteHeader(http.StatusOK)
 		err = json.NewEncoder(w).Encode(&NewConnectionResponse{Username: id})
 		if err != nil {
-			panic(err)
+			logger.WithFields(logrus.Fields{"component": "api"}).Errorf("[%p] %s", r, err)
 		}
 	}
 }
@@ -49,39 +49,39 @@ func ApplyPermissionAgent(logger *logrus.Logger, conf *foodme.Configuration, htt
 		err := json.NewDecoder(r.Body).Decode(data)
 		if err != nil {
 			logger.WithFields(logrus.Fields{"component": "api"}).Errorf("[%p] %s", r, err)
-			HandleErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Failed to parse request: %s", err))
+			HandleErrorResponse(logger, w, http.StatusBadRequest, fmt.Sprintf("Failed to parse request: %s", err))
 			return
 		}
 
 		if data.Username == "" {
 			logger.WithFields(logrus.Fields{"component": "api"}).Errorf("[%p] No username provided", r)
-			HandleErrorResponse(w, http.StatusBadRequest, "No username provided")
+			HandleErrorResponse(logger, w, http.StatusBadRequest, "No username provided")
 			return
 		}
 
 		if data.SQL == "" {
 			logger.WithFields(logrus.Fields{"component": "api"}).Errorf("[%p] No SQL provided", r)
-			HandleErrorResponse(w, http.StatusBadRequest, "No SQL provided")
+			HandleErrorResponse(logger, w, http.StatusBadRequest, "No SQL provided")
 			return
 		}
 
 		// Validate data and state
 		if !conf.OIDCEnabled {
 			logger.WithFields(logrus.Fields{"component": "api"}).Errorf("[%p] OIDC is disabled", r)
-			HandleErrorResponse(w, http.StatusFailedDependency, "OIDC is disabled")
+			HandleErrorResponse(logger, w, http.StatusFailedDependency, "OIDC is disabled")
 			return
 		}
 
 		if !conf.PermissionAgentEnabled {
 			logger.WithFields(logrus.Fields{"component": "api"}).Errorf("[%p] Permission agent is disabled", r)
-			HandleErrorResponse(w, http.StatusFailedDependency, "Permission agent is disabled")
+			HandleErrorResponse(logger, w, http.StatusFailedDependency, "Permission agent is disabled")
 			return
 		}
 
 		at, rt := foodme.GlobalState.GetTokens(data.Username)
 		if at == "" || rt == "" {
 			logger.WithFields(logrus.Fields{"component": "api"}).Errorf("[%p] No tokens found for user %s", r, data.Username)
-			HandleErrorResponse(w, http.StatusNotFound, "No tokens found for user "+data.Username)
+			HandleErrorResponse(logger, w, http.StatusNotFound, "No tokens found for user "+data.Username)
 			return
 		}
 
@@ -89,7 +89,7 @@ func ApplyPermissionAgent(logger *logrus.Logger, conf *foodme.Configuration, htt
 		cspec, ok := conf.OIDCDatabaseClients[data.Database]
 		if !ok && !conf.OIDCDatabaseFallBackToBaseClient {
 			logger.WithFields(logrus.Fields{"component": "api"}).Errorf("[%p] No client found for database %s", r, data.Database)
-			HandleErrorResponse(w, http.StatusNotFound, "No client found for database "+data.Database)
+			HandleErrorResponse(logger, w, http.StatusNotFound, "No client found for database "+data.Database)
 			return
 		} else if !ok {
 			cspec = &foodme.OIDCDatabaseClientSpec{ClientID: conf.OIDCClientID, ClientSecret: conf.OIDCClientSecret}
@@ -100,7 +100,7 @@ func ApplyPermissionAgent(logger *logrus.Logger, conf *foodme.Configuration, htt
 			err = oidcClient.RefreshAccessToken()
 			if err != nil {
 				logger.WithFields(logrus.Fields{"component": "api"}).Errorf("[%p] %s", r, err)
-				HandleErrorResponse(w, http.StatusUnauthorized, "Failed to refresh access token: "+err.Error())
+				HandleErrorResponse(logger, w, http.StatusUnauthorized, "Failed to refresh access token: "+err.Error())
 				return
 			}
 		}
@@ -108,7 +108,7 @@ func ApplyPermissionAgent(logger *logrus.Logger, conf *foodme.Configuration, htt
 		uinfo, err := oidcClient.GetUserInfo()
 		if err != nil {
 			logger.WithFields(logrus.Fields{"component": "api"}).Errorf("[%p] %s", r, err)
-			HandleErrorResponse(w, http.StatusUnauthorized, "Failed to get user info: "+err.Error())
+			HandleErrorResponse(logger, w, http.StatusUnauthorized, "Failed to get user info: "+err.Error())
 			return
 		}
 
@@ -116,28 +116,28 @@ func ApplyPermissionAgent(logger *logrus.Logger, conf *foodme.Configuration, htt
 		agent := foodme.NewPermissionAgent(conf, httpClient)
 		if agent == nil {
 			logger.WithFields(logrus.Fields{"component": "api"}).Errorf("[%p] Failed to create permission agent", r)
-			HandleErrorResponse(w, http.StatusInternalServerError, "Failed to create permission agent")
+			HandleErrorResponse(logger, w, http.StatusInternalServerError, "Failed to create permission agent")
 			return
 		}
 
 		sqlHandler, err := foodme.NewSQLHandler(conf.DestinationDatabaseType, logger, agent)
 		if err != nil {
 			logger.WithFields(logrus.Fields{"component": "api"}).Errorf("[%p] %s", r, err)
-			HandleErrorResponse(w, http.StatusInternalServerError, "Failed to create SQL handler: "+err.Error())
+			HandleErrorResponse(logger, w, http.StatusInternalServerError, "Failed to create SQL handler: "+err.Error())
 			return
 		}
 
 		err = sqlHandler.SetDDL(uinfo)
 		if err != nil {
 			logger.WithFields(logrus.Fields{"component": "api"}).Errorf("[%p] %s", r, err)
-			HandleErrorResponse(w, http.StatusInternalServerError, "Failed to set DDL: "+err.Error())
+			HandleErrorResponse(logger, w, http.StatusInternalServerError, "Failed to set DDL: "+err.Error())
 			return
 		}
 
 		newSQL, err := sqlHandler.Handle(data.SQL, uinfo)
 		if err != nil {
 			logger.WithFields(logrus.Fields{"component": "api"}).Errorf("[%p] %s", r, err)
-			HandleErrorResponse(w, http.StatusInternalServerError, "Failed to handle SQL: "+err.Error())
+			HandleErrorResponse(logger, w, http.StatusInternalServerError, "Failed to handle SQL: "+err.Error())
 			return
 		}
 
@@ -145,7 +145,7 @@ func ApplyPermissionAgent(logger *logrus.Logger, conf *foodme.Configuration, htt
 		w.WriteHeader(http.StatusOK)
 		err = json.NewEncoder(w).Encode(&PermissionApplyResponse{SQL: data.SQL, NewSQL: newSQL})
 		if err != nil {
-			panic(err)
+			logger.WithFields(logrus.Fields{"component": "api"}).Errorf("[%p] %s", r, err)
 		}
 	}
 }
