@@ -20,8 +20,9 @@ type MockHeaders struct {
 }
 
 type MockResponseWriter struct {
-	buffer  *MockBuffer
-	headers *MockHeaders
+	buffer    *MockBuffer
+	headers   *MockHeaders
+	failWrite bool
 }
 
 type MockBody struct {
@@ -48,6 +49,9 @@ func (m MockResponseWriter) Header() http.Header {
 }
 
 func (m MockResponseWriter) Write(data []byte) (int, error) {
+	if m.failWrite {
+		return 0, fmt.Errorf("write failure")
+	}
 	m.buffer.buffer = append(m.buffer.buffer, data...)
 	return len(data), nil
 }
@@ -90,9 +94,13 @@ func (m *MockHttpClient) Do(req *http.Request) (*http.Response, error) {
 
 func TestHandleErrorResponse(t *testing.T) {
 	w := MockResponseWriter{buffer: &MockBuffer{buffer: []byte{}}, headers: &MockHeaders{headers: []int{}}}
-	HandleErrorResponse(w, 500, "message")
+	logger := logrus.StandardLogger()
+	HandleErrorResponse(logger, w, 500, "message")
 	assert.DeepEqual(t, w.headers.headers, []int{500})
 	assert.DeepEqual(t, w.buffer.buffer, []byte("{\"detail\":\"message\"}\n"))
+
+	w.failWrite = true
+	HandleErrorResponse(logger, w, 500, "message")
 }
 
 func TestCreateNewConnectionFail(t *testing.T) {
@@ -122,6 +130,11 @@ func TestCreateNewConnectionOK(t *testing.T) {
 	assert.Equal(t, at, "a")
 	assert.Equal(t, rt, "r")
 	foodme.GlobalState.DeleteConnection(data.Username)
+
+	w = MockResponseWriter{buffer: &MockBuffer{buffer: []byte{}}, headers: &MockHeaders{headers: []int{}}, failWrite: true}
+	body = &MockBody{Body: "{\"access_token\":\"a\",\"refresh_token\":\"r\"}"}
+	r = &http.Request{Body: body}
+	handler(w, r)
 }
 
 func TestApplyPermissionAgent(t *testing.T) {
@@ -306,4 +319,21 @@ func TestApplyPermissionAgent(t *testing.T) {
 	err = json.Unmarshal(w.buffer.buffer, &respData)
 	assert.NilError(t, err)
 	assert.DeepEqual(t, respData, map[string]interface{}{"sql": "select * from pets p", "new_sql": "SELECT * FROM pets AS p WHERE ((p.owners >= 23))"})
+
+	mockHttpClient = &MockHttpClient{
+		DoSucceed: true,
+		Response: []string{
+			"{\"access_token\":\"access\"}",
+			"{\"preferred_username\":\"test_user\"}",
+			"{}",
+			"{}",
+			"{}",
+			"{\"result\":{\"queries\":[[{\"terms\":[{\"type\":\"number\",\"value\":23},{\"type\":\"ref\",\"value\":[{\"type\":\"var\",\"value\":\"gte\"}]},{\"type\":\"ref\",\"value\":[{\"type\":\"var\",\"value\":\"data\"},{\"type\":\"string\",\"value\":\"tables\"},{\"type\":\"string\",\"value\":\"pets\"},{\"type\":\"string\",\"value\":\"owners\"}]}]}]]}}",
+		},
+		StatusCode: 200,
+	}
+	handler = ApplyPermissionAgent(log, conf, mockHttpClient)
+	w = MockResponseWriter{buffer: &MockBuffer{buffer: []byte{}}, headers: &MockHeaders{headers: []int{}}, failWrite: true}
+	r = &http.Request{Body: &MockBody{Body: "{\"username\":\"test\", \"sql\":\"select * from pets p\"}"}}
+	handler(w, r)
 }
