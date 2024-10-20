@@ -222,7 +222,7 @@ func TestApplyPermissionAgent(t *testing.T) {
 	r = &http.Request{Body: &MockBody{Body: "{\"username\":\"test\", \"sql\":\"select * from pets\"}"}}
 	handler(w, r)
 	assert.DeepEqual(t, w.headers.headers, []int{500})
-	assert.DeepEqual(t, w.buffer.buffer, []byte("{\"detail\":\"Failed to create permission agent\"}\n"))
+	assert.DeepEqual(t, w.buffer.buffer, []byte("{\"detail\":\"Failed to create permission agent: unknown permission agent type: \"}\n"))
 
 	// Missing SQL handler
 	conf.PermissionAgentEnabled = true
