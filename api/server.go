@@ -9,7 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func Cleaner(logger *logrus.Logger, period int) {
+func StartCleaner(logger *logrus.Logger, period int) {
 	logger.WithFields(logrus.Fields{"component": "cleaner"}).Infof("Starting the Cleaner")
 	t := time.NewTicker(time.Duration(period) * time.Second)
 	go func() {
@@ -28,7 +28,7 @@ func Cleaner(logger *logrus.Logger, period int) {
 func Start(logger *logrus.Logger, conf *foodme.Configuration) {
 	logger.WithFields(logrus.Fields{"component": "api"}).Infof("Starting the API")
 
-	go Cleaner(logger, conf.ApiGarbageCollectionPeriod)
+	StartCleaner(logger, conf.ApiGarbageCollectionPeriod)
 	server := http.NewServeMux()
 	httpClient := &http.Client{}
 	server.HandleFunc("POST /connection", CreateNewConnection(logger, conf.ApiUsernameLifetime))
